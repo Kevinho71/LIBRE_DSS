@@ -46,9 +46,23 @@ jobs:
   test:
     name: Unit Tests (Vitest)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: libredss_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET_TEST }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL_TEST || 'postgresql://postgres:postgres@localhost:5432/libredss_test' }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET_TEST || 'ci-test-secret-32chars-minimum!!' }}
       NODE_ENV: test
     steps:
       - name: Checkout
@@ -62,6 +76,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run migrations on test DB
+        run: npm run db:migrate --workspace=backend
 
       - name: Run tests - backend
         run: npm run test --workspace=backend

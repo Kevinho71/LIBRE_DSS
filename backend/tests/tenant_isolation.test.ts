@@ -2,8 +2,12 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { db, withTenant } from '../src/db/client';
 import { empresas, productos } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
+const isDatabaseConfigured = Boolean(
+  process.env.DATABASE_URL &&
+  (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://'))
+);
 
-describe('Tenant Isolation Suite (PostgreSQL RLS)', () => {
+describe.runIf(isDatabaseConfigured)('Tenant Isolation Suite (PostgreSQL RLS)', () => {
   let empresaAId: string;
   let empresaBId: string;
   let productoAId: string;
