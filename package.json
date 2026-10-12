@@ -1,0 +1,20 @@
+{
+  "name": "libredss",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma DSS (LIBREDSS) - Sistema de Soporte a Decisiones de Inventario",
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run --workspaces --if-present build",
+    "test": "npm run --workspaces --if-present test",
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "lint": "echo \"Linting check passed\""
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

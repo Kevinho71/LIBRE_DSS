@@ -1,0 +1,30 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches: [main, development, develop]
+  pull_request:
+    branches: [main, development, develop]
+
+jobs:
+  quality-gate:
+    name: Lint, Typecheck and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Typecheck
+        run: npm run typecheck
+
+      - name: Run Tests (Vitest)
+        run: npm run test

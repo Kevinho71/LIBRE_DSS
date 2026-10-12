@@ -1,0 +1,28 @@
+{
+  "name": "@libredss/backend",
+  "version": "0.1.0",
+  "description": "Backend API Serverless y Motor Algorítmico DSS",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@libredss/shared": "*",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.33.0",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.6",
+    "drizzle-kit": "^0.24.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
