@@ -175,3 +175,17 @@ CREATE POLICY "tenant_isolation_parametros_calculo" ON "parametros_calculo"
 	FOR ALL
 	USING ("empresa_id" = NULLIF(current_setting('app.empresa_id', true), '')::uuid)
 	WITH CHECK ("empresa_id" = NULLIF(current_setting('app.empresa_id', true), '')::uuid);
+
+-- Configuración de Rol de Aplicación para RLS estricto (NOBYPASSRLS)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'libredss_app') THEN
+    CREATE ROLE libredss_app WITH NOINHERIT NOBYPASSRLS;
+  END IF;
+END
+$$;
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO libredss_app;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO libredss_app;
+GRANT ALL PRIVILEGES ON SCHEMA public TO libredss_app;
+GRANT libredss_app TO CURRENT_USER;
