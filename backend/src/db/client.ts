@@ -8,9 +8,11 @@ dotenv.config();
 if (!process.env.DATABASE_URL) {
   dotenv.config({ path: path.resolve(__dirname, '../../.env.development') });
 }
+const isLocal = !process.env.DATABASE_URL || process.env.DATABASE_URL.includes('localhost') || process.env.DATABASE_URL.includes('127.0.0.1');
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // Cadena con connection pooling de Neon
+  connectionString: process.env.DATABASE_URL, // Cadena con connection pooling de Neon o DB local
+  ssl: isLocal ? false : { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
 });

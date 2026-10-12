@@ -14,29 +14,33 @@ export async function runMigration() {
     throw new Error('DATABASE_URL no está definida en las variables de entorno.');
   }
 
-  console.log('🔄 Conectando a Neon PostgreSQL...');
+  const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+  console.log(`🔄 Conectando a PostgreSQL (${isLocal ? 'Local/CI' : 'Neon Serverless'})...`);
   const pool = new Pool({
     connectionString,
-    ssl: { rejectUnauthorized: false },
+    ssl: isLocal ? false : { rejectUnauthorized: false },
   });
 
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     const sqlPath = path.resolve(__dirname, 'migrations/0000_init_schema.sql');
     console.log(`📄 Leyendo archivo SQL de migración: ${sqlPath}`);
     const sql = fs.readFileSync(sqlPath, 'utf8');
 
-    console.log('⚡ Aplicando DDL en Neon (Tablas, Extensiones, Índices y Políticas RLS)...');
+    console.log('⚡ Aplicando DDL (Tablas, Extensiones, Índices y Políticas RLS)...');
     await client.query('BEGIN');
     await client.query(sql);
     await client.query('COMMIT');
-    console.log('✅ Migración ejecutada exitosamente en Neon PostgreSQL.');
+    console.log('✅ Migración ejecutada exitosamente.');
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (client) {
+      await client.query('ROLLBACK');
+    }
     console.error('❌ Error ejecutando la migración:', error);
     throw error;
   } finally {
-    client.release();
+    if (client) client.release();
     await pool.end();
   }
 }
