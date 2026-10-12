@@ -10,7 +10,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
     "@libredss/shared": "*",
@@ -22,6 +22,7 @@
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.6",
     "drizzle-kit": "^0.24.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }
