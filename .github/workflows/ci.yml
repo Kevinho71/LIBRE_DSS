@@ -1,4 +1,4 @@
-name: CI Quality Gate
+name: CI - Quality Gate
 
 on:
   push:
@@ -6,25 +6,171 @@ on:
   pull_request:
     branches: [main, development, develop]
 
+# Cancela runs anteriores del mismo PR/branch para ahorrar minutos
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
 jobs:
-  quality-gate:
-    name: Lint, Typecheck and Test
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 1 - LINT - Estilo, formato y convenciones de codigo
+  # ─────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint and Typecheck
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Typecheck
-        run: npm run typecheck
+      - name: TypeScript typecheck - backend
+        run: npm run typecheck --workspace=backend
 
-      - name: Run Tests (Vitest)
-        run: npm run test
+      - name: TypeScript typecheck - frontend
+        run: npm run typecheck --workspace=frontend
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 2 - TEST - Pruebas unitarias con Vitest
+  # ─────────────────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests (Vitest)
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET_TEST }}
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests - backend
+        run: npm run test --workspace=backend
+
+      - name: Run tests - frontend
+        run: npm run test --workspace=frontend
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: |
+            backend/coverage/
+            frontend/coverage/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 3 - SECURITY - Analisis estatico de seguridad
+  # ─────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Audit de dependencias npm - detecta CVEs conocidas en paquetes
+      - name: npm audit (high severity)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      # CodeQL - Analisis estatico de seguridad de codigo TypeScript
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - name: Autobuild for CodeQL
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 4 - BUILD - Compila artefactos (backend Lambda + frontend SPA)
+  # Solo en push a main/development (no en PR para ahorrar tiempo)
+  # ─────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Artifacts
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared workspace
+        run: npm run build --workspace=shared
+        continue-on-error: true
+
+      - name: Build backend (TypeScript to dist/)
+        run: npm run build --workspace=backend
+
+      - name: Build frontend (Vite SPA)
+        run: npm run build --workspace=frontend
+
+      # Empaqueta el backend como ZIP para AWS Lambda
+      - name: Package backend Lambda ZIP
+        run: |
+          cd backend
+          zip -r ../backend-lambda-${{ github.sha }}.zip dist/ node_modules/ package.json
+
+      # Guarda los artefactos compilados (listos para CD futuro)
+      - name: Upload backend Lambda artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-lambda-${{ github.sha }}
+          path: backend-lambda-${{ github.sha }}.zip
+          retention-days: 30
+
+      - name: Upload frontend SPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: frontend/dist/
+          retention-days: 30
