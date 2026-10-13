@@ -1,19 +1,19 @@
 import crypto from 'crypto';
 import { PresignedUrlRequestDto, PresignedUrlResponseDto } from './storage.types';
 import { logger } from '../../shared/utils/logger';
+import { generarPresignedUploadUrl } from '../../shared/aws/s3';
+import { env } from '../../shared/utils/env';
 
 export const storageService = {
   async generarPresignedUrl(empresaId: string, dto: PresignedUrlRequestDto): Promise<PresignedUrlResponseDto> {
-    const bucket = process.env.AWS_S3_BUCKET || 'libredss-recibos-dev';
-    const region = process.env.AWS_REGION || 'us-east-2';
+    const bucket = env.AWS_S3_BUCKET;
     const uuid = crypto.randomUUID();
     const sanitizedFilename = dto.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
     const key = `recibos/${empresaId}/${uuid}_${sanitizedFilename}`;
-    const expiresInSeconds = 300; // 5 minutos
+    const expiresInSeconds = 300;
 
-    // Generar URL prefirmada PUT para subida directa sin intermediarios pesados
-    const signature = crypto.randomBytes(16).toString('hex');
-    const uploadUrl = `https://${bucket}.s3.${region}.amazonaws.com/${key}?X-Amz-Expires=${expiresInSeconds}&X-Amz-Signature=${signature}`;
+    // URL prefirmada real para subida directa a S3 sin intermediarios pesados
+    const uploadUrl = await generarPresignedUploadUrl(bucket, key, dto.contentType, expiresInSeconds);
 
     logger.info('Presigned URL para subida de imagen generada', {
       empresaId,

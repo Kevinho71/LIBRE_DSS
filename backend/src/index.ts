@@ -28,6 +28,8 @@ import {
   actualizarPagoNotaHandler,
 } from './modules/transacciones/transacciones.handler';
 import { generarPresignedUrlHandler } from './modules/storage/storage.handler';
+import { recalcularAbcHandler, obtenerResumenAbcHandler, obtenerParetoHandler } from './modules/dss/dss.handler';
+import { extraerIngestaHandler, confirmarIngestaHandler } from './modules/ai/ai.handler';
 
 function normalizePath(rawPath: string): string {
   let p = (rawPath || '/').toLowerCase().trim();
@@ -135,6 +137,26 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
   if (resource === 'storage') {
     if (segments.length === 2 && segments[1] === 'presigned-url' && method === 'POST') {
       return generarPresignedUrlHandler(event);
+    }
+  }
+
+  // 8. Motor DSS — Clasificación ABC (/dss/*)
+  if (resource === 'dss') {
+    if (segments.length === 3 && segments[1] === 'abc') {
+      const action = segments[2];
+      if (method === 'GET' && action === 'resumen') return obtenerResumenAbcHandler(event);
+      if (method === 'GET' && action === 'pareto') return obtenerParetoHandler(event);
+      if (method === 'POST' && action === 'recalcular') return recalcularAbcHandler(event);
+    }
+  }
+
+  // 9. Ingesta asistida por IA (/ingesta/*)
+  if (resource === 'ingesta') {
+    if (segments.length === 2 && segments[1] === 'extraer' && method === 'POST') {
+      return extraerIngestaHandler(event);
+    }
+    if (segments.length === 3 && segments[2] === 'confirmar' && method === 'POST') {
+      return confirmarIngestaHandler(event, segments[1]);
     }
   }
 
