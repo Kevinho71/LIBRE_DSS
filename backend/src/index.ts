@@ -28,7 +28,16 @@ import {
   actualizarPagoNotaHandler,
 } from './modules/transacciones/transacciones.handler';
 import { generarPresignedUrlHandler } from './modules/storage/storage.handler';
-import { recalcularAbcHandler, obtenerResumenAbcHandler, obtenerParetoHandler } from './modules/dss/dss.handler';
+import {
+  recalcularAbcHandler,
+  obtenerResumenAbcHandler,
+  obtenerParetoHandler,
+  recalcularEoqRopHandler,
+  obtenerAlertasHandler,
+  recalcularSistemasHandler,
+  obtenerSistemasHandler,
+  obtenerAlertasMinMaxHandler,
+} from './modules/dss/dss.handler';
 import { extraerIngestaHandler, confirmarIngestaHandler } from './modules/ai/ai.handler';
 
 function normalizePath(rawPath: string): string {
@@ -147,6 +156,26 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
       if (method === 'GET' && action === 'resumen') return obtenerResumenAbcHandler(event);
       if (method === 'GET' && action === 'pareto') return obtenerParetoHandler(event);
       if (method === 'POST' && action === 'recalcular') return recalcularAbcHandler(event);
+    }
+
+    if (segments.length === 2 && segments[1] === 'alertas' && method === 'GET') {
+      return obtenerAlertasHandler(event);
+    }
+
+    if (segments.length === 2 && segments[1] === 'alertas-min-max' && method === 'GET') {
+      return obtenerAlertasMinMaxHandler(event);
+    }
+
+    if (segments.length === 2 && segments[1] === 'sistemas' && method === 'GET') {
+      return obtenerSistemasHandler(event);
+    }
+
+    if (segments.length === 3 && segments[1] === 'sistemas' && segments[2] === 'recalcular' && method === 'POST') {
+      return recalcularSistemasHandler(event);
+    }
+
+    if (segments.length === 3 && segments[1] === 'eoq-rop' && segments[2] === 'recalcular' && method === 'POST') {
+      return recalcularEoqRopHandler(event);
     }
   }
 

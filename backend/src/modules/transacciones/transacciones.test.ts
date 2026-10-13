@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'crypto';
 import { transaccionesService } from './transacciones.service';
 import { transaccionesRepository } from './transacciones.repository';
+import { dssService } from '../dss/dss.service';
 import { NotFoundError } from '../../shared/errors/AppError';
 import {
   registrarVentaSchema,
@@ -18,6 +19,7 @@ describe('Transacciones Service & Schema Unit Tests (Sprint 2 / LIB-3)', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(dssService, 'evaluarPosicionInventario').mockResolvedValue(null);
   });
 
   describe('Validación de Esquemas Zod', () => {
@@ -185,6 +187,53 @@ describe('Transacciones Service & Schema Unit Tests (Sprint 2 / LIB-3)', () => {
       expect(res.idempotente).toBe(false);
       expect(res.notaId).toBe(notaId);
       expect(res.transacciones.length).toBe(1);
+    });
+  });
+
+  describe('Evaluación de ROP tras salida de almacén (HU-21 / LIB-35)', () => {
+    it('adjunta la alerta de reabastecimiento a la respuesta de la venta cuando aplica', async () => {
+      vi.spyOn(transaccionesRepository, 'findByIdempotencia').mockResolvedValue([]);
+      vi.spyOn(transaccionesRepository, 'registrarVenta').mockResolvedValue({
+        transaccion: {
+          id: 'trx-trigger-1',
+          empresaId,
+          productoId,
+          notaId: null,
+          tipo: 'venta',
+          cantidad: '5.00',
+          costoUnitarioHistorico: '10.00',
+          precioVentaHistorico: '15.00',
+          motivo: null,
+          estadoPago: 'contado',
+          llaveIdempotencia: null,
+          fechaEvento: '2026-10-12',
+          fechaRegistro: new Date(),
+        },
+        nuevoStock: 45,
+      });
+
+      const alerta = {
+        productoId,
+        sku: null,
+        nombre: 'Producto Alerta',
+        categoriaAbc: 'A' as const,
+        stockActual: 45,
+        enTransito: 0,
+        posicionInventario: 45,
+        ropCalculado: 70,
+        stockSeguridad: 20.7,
+        eoqSugerido: 230,
+        deficit: 25,
+      };
+      vi.spyOn(dssService, 'evaluarPosicionInventario').mockResolvedValue(alerta);
+
+      const res = await transaccionesService.registrarVenta(empresaId, {
+        productoId,
+        cantidad: 5,
+      });
+
+      expect(res.alerta).toEqual(alerta);
+      expect(dssService.evaluarPosicionInventario).toHaveBeenCalledWith(empresaId, productoId);
     });
   });
 
