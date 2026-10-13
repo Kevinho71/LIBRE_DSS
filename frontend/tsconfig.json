@@ -17,7 +17,9 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@libredss/shared": ["../shared/src/index.ts"],
+      "@libredss/shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src", "tests"]
