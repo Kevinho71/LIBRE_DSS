@@ -38,3 +38,12 @@ export async function listarProductosHandler(event: LambdaEvent): Promise<Lambda
   const result = await productosService.listarProductos(empresaId, query);
   return ok(result);
 }
+
+export async function buscarProductosHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const queryParams = event.queryStringParameters || {};
+  const q = queryParams.q || '';
+  const limit = queryParams.limit ? Number(queryParams.limit) : 10;
+  const result = await productosService.buscarRapido(empresaId, q, limit);
+  return ok({ items: result, total: result.length });
+}

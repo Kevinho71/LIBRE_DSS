@@ -11,6 +11,12 @@ export abstract class AppError extends Error {
   }
 }
 
+export class BadRequestError extends AppError {
+  constructor(code = 'BAD_REQUEST', message = 'Petición inválida', details?: unknown) {
+    super(code, message, 400, details);
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(code = 'NOT_FOUND', message = 'Recurso no encontrado', details?: unknown) {
     super(code, message, 404, details);

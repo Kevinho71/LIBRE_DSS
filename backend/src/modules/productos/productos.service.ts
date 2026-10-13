@@ -167,4 +167,8 @@ export const productosService = {
 
     return buildPaginatedResult(finalItems, total, paginationParams);
   },
+
+  async buscarRapido(empresaId: string, query: string, limit = 10) {
+    return productosRepository.buscarRapido(empresaId, query, limit);
+  },
 };
