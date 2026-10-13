@@ -8,6 +8,7 @@ import {
   actualizarProductoHandler,
   eliminarProductoHandler,
   listarProductosHandler,
+  buscarProductosHandler,
 } from './modules/productos/productos.handler';
 import {
   crearProveedorHandler,
@@ -15,6 +16,18 @@ import {
   asociarProductoProveedorHandler,
   listarProveedoresDeProductoHandler,
 } from './modules/proveedores/proveedores.handler';
+import {
+  registrarVentaHandler,
+  registrarVentaBatchHandler,
+  registrarIngresoHandler,
+  registrarAjusteHandler,
+  registrarDevolucionHandler,
+  listarTransaccionesHandler,
+  obtenerTransaccionesPorNotaHandler,
+  actualizarPagoHandler,
+  actualizarPagoNotaHandler,
+} from './modules/transacciones/transacciones.handler';
+import { generarPresignedUrlHandler } from './modules/storage/storage.handler';
 
 function normalizePath(rawPath: string): string {
   let p = (rawPath || '/').toLowerCase().trim();
@@ -67,6 +80,7 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
     }
 
     if (segments.length === 2) {
+      if (segments[1] === 'buscar' && method === 'GET') return buscarProductosHandler(event);
       const id = segments[1];
       if (method === 'GET') return obtenerProductoHandler(event, id);
       if (method === 'PUT') return actualizarProductoHandler(event, id);
@@ -85,6 +99,42 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
     if (segments.length === 1) {
       if (method === 'POST') return crearProveedorHandler(event);
       if (method === 'GET') return listarProveedoresHandler(event);
+    }
+  }
+
+  // 6. Transacciones (/transacciones/*)
+  if (resource === 'transacciones') {
+    if (segments.length === 1) {
+      if (method === 'GET') return listarTransaccionesHandler(event);
+    }
+
+    if (segments.length === 2) {
+      const action = segments[1];
+      if (method === 'POST' && action === 'venta') return registrarVentaHandler(event);
+      if (method === 'POST' && action === 'batch') return registrarVentaBatchHandler(event);
+      if (method === 'POST' && action === 'ingreso') return registrarIngresoHandler(event);
+      if (method === 'POST' && action === 'ajuste') return registrarAjusteHandler(event);
+      if (method === 'POST' && action === 'devolucion') return registrarDevolucionHandler(event);
+    }
+
+    if (segments.length === 3) {
+      if (segments[1] === 'notas' && method === 'GET') {
+        return obtenerTransaccionesPorNotaHandler(event, segments[2]);
+      }
+      if (segments[2] === 'pago' && method === 'PATCH') {
+        return actualizarPagoHandler(event, segments[1]);
+      }
+    }
+
+    if (segments.length === 4 && segments[1] === 'notas' && segments[3] === 'pago' && method === 'PATCH') {
+      return actualizarPagoNotaHandler(event, segments[2]);
+    }
+  }
+
+  // 7. Almacenamiento / Fotos (/storage/*)
+  if (resource === 'storage') {
+    if (segments.length === 2 && segments[1] === 'presigned-url' && method === 'POST') {
+      return generarPresignedUrlHandler(event);
     }
   }
 

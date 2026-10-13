@@ -177,4 +177,39 @@ export const productosRepository = {
 
     return { items, total };
   },
+
+  async buscarRapido(empresaId: string, query: string, limit = 10) {
+    const pattern = `%${(query || '').trim()}%`;
+    const rows = await db
+      .select({
+        id: productos.id,
+        sku: productos.sku,
+        nombre: productos.nombre,
+        precioVenta: productos.precioVenta,
+        costoUnitario: productos.costoUnitario,
+        stockActual: productos.stockActual,
+        unidadMedida: productos.unidadMedida,
+        factorConversion: productos.factorConversion,
+        unidadCompra: productos.unidadCompra,
+      })
+      .from(productos)
+      .where(and(
+        eq(productos.empresaId, empresaId),
+        isNull(productos.deletedAt),
+        or(
+          ilike(productos.nombre, pattern),
+          ilike(productos.sku, pattern)
+        )!
+      ))
+      .orderBy(productos.nombre)
+      .limit(limit);
+
+    return rows.map(r => ({
+      ...r,
+      precioVenta: Number(r.precioVenta),
+      costoUnitario: Number(r.costoUnitario),
+      stockActual: Number(r.stockActual),
+      factorConversion: Number(r.factorConversion),
+    }));
+  },
 };
