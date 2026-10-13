@@ -8,6 +8,8 @@ if (!process.env.DATABASE_URL) {
   dotenv.config({ path: path.resolve(__dirname, '../../.env.development') });
 }
 
+const TRACKING_TABLE = 'schema_migrations';
+
 export async function runMigration() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -24,15 +26,54 @@ export async function runMigration() {
   let client;
   try {
     client = await pool.connect();
-    const sqlPath = path.resolve(__dirname, 'migrations/0000_init_schema.sql');
-    console.log(`📄 Leyendo archivo SQL de migración: ${sqlPath}`);
-    const sql = fs.readFileSync(sqlPath, 'utf8');
 
-    console.log('⚡ Aplicando DDL (Tablas, Extensiones, Índices y Políticas RLS)...');
-    await client.query('BEGIN');
-    await client.query(sql);
-    await client.query('COMMIT');
-    console.log('✅ Migración ejecutada exitosamente.');
+    // Tabla de seguimiento de migraciones ya aplicadas (idempotente)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS ${TRACKING_TABLE} (
+        filename text PRIMARY KEY,
+        applied_at timestamp DEFAULT now() NOT NULL
+      )`
+    );
+
+    // Si la migración 0000 ya se aplicó antes de existir el tracking (tabla empresa presente),
+    // se registra como aplicada para no volver a ejecutarla.
+    const empresaResult = await client.query(`SELECT to_regclass('public.empresa') AS reg`);
+    const schemaYaInicializado = empresaResult.rows[0]?.reg != null;
+
+    const migrationsDir = path.resolve(__dirname, 'migrations');
+    const files = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+
+    for (const file of files) {
+      const yaAplicada = await client.query(
+        `SELECT 1 FROM ${TRACKING_TABLE} WHERE filename = $1`,
+        [file]
+      );
+
+      if (yaAplicada.rowCount && yaAplicada.rowCount > 0) {
+        continue;
+      }
+
+      if (file.startsWith('0000') && schemaYaInicializado) {
+        await client.query(`INSERT INTO ${TRACKING_TABLE} (filename) VALUES ($1)`, [file]);
+        console.log(`⏭️  Migración ${file} ya aplicada previamente (esquema inicializado). Registrada.`);
+        continue;
+      }
+
+      const sqlPath = path.join(migrationsDir, file);
+      const sql = fs.readFileSync(sqlPath, 'utf8');
+      console.log(`📄 Aplicando migración: ${file}`);
+
+      await client.query('BEGIN');
+      await client.query(sql);
+      await client.query(`INSERT INTO ${TRACKING_TABLE} (filename) VALUES ($1)`, [file]);
+      await client.query('COMMIT');
+      console.log(`✅ Migración aplicada: ${file}`);
+    }
+
+    console.log('✅ Migraciones al día.');
   } catch (error) {
     if (client) {
       await client.query('ROLLBACK');

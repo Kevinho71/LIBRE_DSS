@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, numeric, integer, timestamp, date, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, numeric, integer, timestamp, date, boolean, uniqueIndex, jsonb } from 'drizzle-orm/pg-core';
 
 // 1. EMPRESA (Inquilino / Tenant)
 export const empresas = pgTable('empresa', {
@@ -116,6 +116,26 @@ export const parametrosCalculo = pgTable('parametros_calculo', {
   stockSeguridadCalculado: numeric('stock_seguridad_calculado', { precision: 12, scale: 2 }),
   intervaloRevisionDias: integer('intervalo_revision_dias'),
   nivelObjetivoT: numeric('nivel_objetivo_t', { precision: 12, scale: 2 }),
+  demandaAnual: numeric('demanda_anual', { precision: 14, scale: 2 }), // D (unidades/año)
+  valorConsumoAnual: numeric('valor_consumo_anual', { precision: 14, scale: 2 }), // V = D * C
+  porcentajeValor: numeric('porcentaje_valor', { precision: 6, scale: 2 }), // % individual sobre V total
+  porcentajeAcumulado: numeric('porcentaje_acumulado', { precision: 6, scale: 2 }), // % acumulado (curva de Pareto)
+  jobId: uuid('job_id'), // Correlación con la ejecución del job nocturno o manual
   esVigente: boolean('es_vigente').default(true).notNull(),
   fechaCalculo: timestamp('fecha_calculo').defaultNow().notNull(),
 });
+
+// 9. INGESTA (Estado de extracción IA para flujo Human-in-the-Loop)
+export const ingestas = pgTable('ingesta', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  empresaId: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }).notNull(),
+  s3Key: varchar('s3_key', { length: 512 }).notNull(),
+  estado: varchar('estado', { length: 20 }).default('pendiente').notNull(), // 'pendiente' | 'confirmada' | 'descartada'
+  fechaEvento: date('fecha_evento'),
+  items: jsonb('items'),
+  llaveIdempotencia: varchar('llave_idempotencia', { length: 64 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  ingestaIdempIdx: uniqueIndex('ingesta_idemp_idx').on(t.empresaId, t.llaveIdempotencia),
+}));

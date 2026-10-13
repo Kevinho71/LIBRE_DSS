@@ -15,6 +15,13 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   JWT_SECRET: z.string().min(8, 'JWT_SECRET debe tener al menos 8 caracteres').default('libredss_dev_secret_key_change_in_production_123!'),
   JWT_EXPIRES_IN: z.string().default('24h'),
+  GEMINI_API_KEY: z.string().min(1).optional(),
+  GEMINI_MODEL: z.string().min(1).default('gemini-3.1-flash-lite'),
+  AWS_S3_BUCKET: z.string().min(1).default('libredss-recibos-dev'),
+  AWS_REGION: z.string().min(1).default('us-east-2'),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_SESSION_TOKEN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
