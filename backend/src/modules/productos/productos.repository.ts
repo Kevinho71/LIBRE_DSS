@@ -1,7 +1,7 @@
 import { db } from '../../db/client';
 import { productos, empresas, parametrosCalculo } from '../../db/schema';
-import { and, eq, isNull, sql, ilike, or } from 'drizzle-orm';
-import { CreateProductoDto, UpdateProductoDto } from './productos.types';
+import { and, eq, isNull, sql, ilike, or, inArray } from 'drizzle-orm';
+import { CreateProductoDto, UpdateProductoDto, FilaCsvProductoDto } from './productos.types';
 
 export const productosRepository = {
   async getEmpresaPlan(empresaId: string): Promise<string> {
@@ -49,6 +49,46 @@ export const productosRepository = {
       .limit(1);
 
     return rows[0] ?? null;
+  },
+
+  async findBySkus(empresaId: string, skus: string[]): Promise<string[]> {
+    const unique = Array.from(new Set(skus)).filter((s) => s && s.trim() !== '');
+    if (unique.length === 0) return [];
+
+    const rows = await db
+      .select({ sku: productos.sku })
+      .from(productos)
+      .where(and(
+        eq(productos.empresaId, empresaId),
+        isNull(productos.deletedAt),
+        inArray(productos.sku, unique)
+      ));
+
+    return rows.map((r) => r.sku as string);
+  },
+
+  async bulkInsert(empresaId: string, filas: FilaCsvProductoDto[]): Promise<number> {
+    if (filas.length === 0) return 0;
+
+    const values = filas.map((f) => ({
+      empresaId,
+      sku: f.sku ?? null,
+      nombre: f.nombre,
+      unidadMedida: f.unidadMedida ?? 'unidad',
+      unidadCompra: f.unidadCompra ?? null,
+      factorConversion: String(f.factorConversion ?? 1.0),
+      costoUnitario: String(f.costoUnitario),
+      precioVenta: String(f.precioVenta),
+      costoPedido: String(f.costoPedido ?? 50.0),
+      tasaMantenimientoAnual: String(f.tasaMantenimientoAnual ?? 0.2),
+      stockActual: String(f.stockActual ?? 0),
+      stockMinimoManual: f.stockMinimoManual != null ? String(f.stockMinimoManual) : null,
+      stockMaximoManual: f.stockMaximoManual != null ? String(f.stockMaximoManual) : null,
+      origenDato: 'csv',
+    }));
+
+    const inserted = await db.insert(productos).values(values).returning();
+    return inserted.length;
   },
 
   async create(empresaId: string, data: CreateProductoDto): Promise<typeof productos.$inferSelect> {

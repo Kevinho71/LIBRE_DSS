@@ -62,3 +62,83 @@ export interface RecalculoDssResponse {
   productosCalculados: number;
   fechaCalculo: string;
 }
+
+// ==========================================
+// DTOs Fase 6: CSV, Consolidación, Explicador, Reporte de Costos
+// ==========================================
+
+export interface OmitidoCsvItem {
+  fila: number;
+  sku: string | null;
+  motivo: 'SKU_DUPLICADO' | 'LIMITE_SKUS';
+}
+
+export interface ImportarCsvResponse {
+  importados: number;
+  omitidos: number;
+  avisoFreemium: string | null;
+  omitidosDetalle: OmitidoCsvItem[];
+}
+
+export interface LineaSugeridaConsolidacionDTO {
+  productoId: string;
+  sku: string | null;
+  nombre: string;
+  categoriaAbc: 'A' | 'B' | 'C';
+  stockActual: number;
+  enTransito: number;
+  posicionInventario: number;
+  ropCalculado: number;
+  eoqSugerido: number;
+}
+
+export interface SugerenciaProveedorResponse {
+  proveedorId: string;
+  nombreProveedor: string;
+  costoPedido: number;
+  totalLineas: number;
+  ahorroEstimado: number;
+  lineas: LineaSugeridaConsolidacionDTO[];
+}
+
+export interface ExplicacionAlertaResponse {
+  productoId: string;
+  sku: string | null;
+  nombre: string;
+  explicacion: string;
+  fuente: 'gemini' | 'plantilla';
+}
+
+export interface ComparativoPoliticaDTO {
+  nombre: string;
+  costoOrdenar: number;
+  costoMantener: number;
+  costoVentaPerdida: number;
+  costoTotal: number;
+  nivelServicio: number;
+  numeroPedidos: number;
+}
+
+export interface ResumenSkuReporteCostosDTO {
+  productoId: string;
+  sku: string | null;
+  nombre: string;
+  dias: number;
+  demandaTotal: number;
+  politicaEmpirica: ComparativoPoliticaDTO;
+  politicaDss: ComparativoPoliticaDTO;
+  ahorro: number;
+  ahorroPorcentual: number;
+}
+
+export interface ReporteCostosResponse {
+  fechaGeneracion: string;
+  diasAnalizados: number;
+  totalProductos: number;
+  politicaEmpirica: ComparativoPoliticaDTO;
+  politicaDss: ComparativoPoliticaDTO;
+  ahorroTotal: number;
+  ahorroPorcentual: number;
+  conclusion: string;
+  productos: ResumenSkuReporteCostosDTO[];
+}
