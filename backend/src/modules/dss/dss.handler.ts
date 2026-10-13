@@ -1,5 +1,6 @@
-import { LambdaEvent, LambdaResponse, ok } from '../../shared/types/lambda';
+import { LambdaEvent, LambdaResponse, ok, parseBody } from '../../shared/types/lambda';
 import { extractTenantId } from '../../shared/middleware/requireAuth';
+import { retrospectivaSchema } from './dss.schema';
 import { dssService } from './dss.service';
 
 export async function recalcularAbcHandler(event: LambdaEvent): Promise<LambdaResponse> {
@@ -47,5 +48,13 @@ export async function obtenerSistemasHandler(event: LambdaEvent): Promise<Lambda
 export async function obtenerAlertasMinMaxHandler(event: LambdaEvent): Promise<LambdaResponse> {
   const empresaId = extractTenantId(event);
   const result = await dssService.obtenerAlertasMinMax(empresaId);
+  return ok(result);
+}
+
+export async function retrospectivaHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const rawBody = parseBody(event.body, event.isBase64Encoded);
+  const dto = retrospectivaSchema.parse(rawBody);
+  const result = await dssService.simularRetrospectiva(empresaId, dto);
   return ok(result);
 }

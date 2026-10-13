@@ -37,8 +37,16 @@ import {
   recalcularSistemasHandler,
   obtenerSistemasHandler,
   obtenerAlertasMinMaxHandler,
+  retrospectivaHandler,
 } from './modules/dss/dss.handler';
 import { extraerIngestaHandler, confirmarIngestaHandler } from './modules/ai/ai.handler';
+import { obtenerDashboardKpisHandler } from './modules/dashboard/dashboard.handler';
+import {
+  listarUsuariosHandler,
+  crearUsuarioHandler,
+  actualizarRolUsuarioHandler,
+  eliminarUsuarioHandler,
+} from './modules/usuarios/usuarios.handler';
 
 function normalizePath(rawPath: string): string {
   let p = (rawPath || '/').toLowerCase().trim();
@@ -177,6 +185,10 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
     if (segments.length === 3 && segments[1] === 'eoq-rop' && segments[2] === 'recalcular' && method === 'POST') {
       return recalcularEoqRopHandler(event);
     }
+
+    if (segments.length === 2 && segments[1] === 'retrospectiva' && method === 'POST') {
+      return retrospectivaHandler(event);
+    }
   }
 
   // 9. Ingesta asistida por IA (/ingesta/*)
@@ -186,6 +198,29 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
     }
     if (segments.length === 3 && segments[2] === 'confirmar' && method === 'POST') {
       return confirmarIngestaHandler(event, segments[1]);
+    }
+  }
+
+  // 10. Dashboard Ejecutivo (/dashboard/*)
+  if (resource === 'dashboard') {
+    if (segments.length === 2 && segments[1] === 'kpis' && method === 'GET') {
+      return obtenerDashboardKpisHandler(event);
+    }
+  }
+
+  // 11. Gestión de Usuarios (/usuarios/*)
+  if (resource === 'usuarios') {
+    if (segments.length === 1) {
+      if (method === 'GET') return listarUsuariosHandler(event);
+      if (method === 'POST') return crearUsuarioHandler(event);
+    }
+
+    if (segments.length === 2 && method === 'DELETE') {
+      return eliminarUsuarioHandler(event, segments[1]);
+    }
+
+    if (segments.length === 3 && segments[2] === 'rol' && method === 'PUT') {
+      return actualizarRolUsuarioHandler(event, segments[1]);
     }
   }
 

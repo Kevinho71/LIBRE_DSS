@@ -6,6 +6,12 @@ import { calcularRop } from '../../engine/ropService';
 import { calcularPosicionInventario, evaluarReorden } from '../../engine/inventoryPosition';
 import { asignarPolitica, calcularSistemaP } from '../../engine/periodicService';
 import { evaluarFaseArranque, evaluarAlertaMinMax } from '../../engine/coldStartService';
+import {
+  ejecutarRetrospectiva,
+  ParametrosSerieRetrospectiva,
+  ResultadoRetrospectiva,
+} from '../../engine/retrospective';
+import { RetrospectivaInput } from './dss.schema';
 import { logger } from '../../shared/utils/logger';
 import {
   ResumenAbc,
@@ -409,5 +415,54 @@ export const dssService = {
     }
 
     return { totalAlertas: alertas.length, alertas };
+  },
+
+  async simularRetrospectiva(empresaId: string, input: RetrospectivaInput): Promise<ResultadoRetrospectiva> {
+    const dias = input.serieDemanda.length;
+    const demandaTotal = input.serieDemanda.reduce((acc, d) => acc + d, 0);
+    const demandaPromedioDiaria = dias > 0 ? demandaTotal / dias : 0;
+    const demandaAnual = demandaPromedioDiaria * DIAS_ANIO;
+
+    const eoq = calcularEoq({
+      demandaAnual,
+      costoPedido: input.costoPedido,
+      costoUnitario: input.costoUnitario,
+      tasaMantenimiento: input.tasaMantenimientoAnual,
+      topeCapitalPedido: TOPE_CAPITAL_PEDIDO_DEFAULT,
+    });
+
+    const rop = calcularRop({
+      demandaPromedioDiaria,
+      leadTimeDias: input.leadTimeDias,
+      categoriaAbc: input.categoriaAbc,
+    });
+
+    const serie: ParametrosSerieRetrospectiva = {
+      demanda: input.serieDemanda,
+      inventarioInicial: input.inventarioInicial,
+      costoUnitario: input.costoUnitario,
+      precioVenta: input.precioVenta,
+      costoPedido: input.costoPedido,
+      tasaMantenimientoAnual: input.tasaMantenimientoAnual,
+      leadTimeDias: input.leadTimeDias,
+    };
+
+    // Política empírica: reorden sin stock de seguridad (punto de pedido = d * L).
+    const puntoPedidoEmpirico = demandaPromedioDiaria * input.leadTimeDias;
+
+    const resultado = ejecutarRetrospectiva(
+      serie,
+      { puntoPedido: rop.rop, cantidadPedido: eoq.eoqRecomendado },
+      { puntoPedido: puntoPedidoEmpirico, cantidadPedido: eoq.eoqRecomendado }
+    );
+
+    logger.info('Simulador retrospectivo contrafactual ejecutado', {
+      empresaId,
+      dias,
+      demandaTotal,
+      ahorro: resultado.ahorro,
+    });
+
+    return resultado;
   },
 };
