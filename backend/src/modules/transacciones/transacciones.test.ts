@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'crypto';
 import { transaccionesService } from './transacciones.service';
 import { transaccionesRepository } from './transacciones.repository';
-import { BadRequestError, NotFoundError } from '../../shared/errors/AppError';
+import { NotFoundError } from '../../shared/errors/AppError';
 import {
   registrarVentaSchema,
   registrarVentaBatchSchema,
@@ -75,6 +75,15 @@ describe('Transacciones Service & Schema Unit Tests (Sprint 2 / LIB-3)', () => {
         cantidad: 3,
         notaId,
         motivo: 'Cliente devolvió sobrante de obra',
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('debe validar exitosamente ingreso de mercadería con unidad de compra (CB-04)', () => {
+      const res = registrarIngresoSchema.safeParse({
+        productoId,
+        cantidad: 10,
+        esUnidadCompra: true,
       });
       expect(res.success).toBe(true);
     });

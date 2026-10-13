@@ -1,5 +1,3 @@
-import { transacciones } from '../../db/schema';
-
 export type TipoTransaccion =
   | 'venta'
   | 'ingreso'

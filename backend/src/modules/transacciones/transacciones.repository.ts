@@ -399,7 +399,7 @@ export const transaccionesRepository = {
       }
 
       const stockActual = Number(prod.stockActual);
-      let nuevoStock = stockActual;
+      let nuevoStock: number;
 
       if (data.tipo === 'devolucion_cliente') {
         // CB-05: Cliente devuelve mercadería -> suma stock sin inflar compras
