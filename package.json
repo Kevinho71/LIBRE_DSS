@@ -9,12 +9,16 @@
     "frontend"
   ],
   "scripts": {
+    "dev": "concurrently -n \"backend,frontend\" -c \"cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=@libredss/backend",
+    "dev:frontend": "npm run dev --workspace=@libredss/frontend",
     "build": "npm run --workspaces --if-present build",
     "test": "npm run --workspaces --if-present test",
     "typecheck": "npm run --workspaces --if-present typecheck",
     "lint": "echo \"Linting check passed\""
   },
   "devDependencies": {
+    "concurrently": "^10.0.6",
     "typescript": "^5.5.4"
   }
 }
