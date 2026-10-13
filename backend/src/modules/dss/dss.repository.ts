@@ -1,9 +1,10 @@
 import { db } from '../../db/client';
-import { empresas, productos, transacciones, parametrosCalculo, productoProveedores, ordenesCompra } from '../../db/schema';
+import { empresas, productos, transacciones, parametrosCalculo, productoProveedores, ordenesCompra, proveedores } from '../../db/schema';
 import { and, eq, isNull, sql, asc } from 'drizzle-orm';
 import { CategoriaAbc } from '../../engine/abcService';
 import { FaseArranque } from '../../engine/coldStartService';
 import { PoliticaInventario } from '../../engine/periodicService';
+import { PosicionProductoConsolidacion } from '../../engine/consolidacion';
 
 export interface DemandaProducto {
   productoId: string;
@@ -99,6 +100,17 @@ export interface FilaAsignacionSistema {
   nivelObjetivoT: number | null;
   ropCalculado: number | null;
   stockSeguridadCalculado: number | null;
+}
+
+export interface DatosExplicacion {
+  productoId: string;
+  sku: string | null;
+  nombre: string;
+  categoriaAbc: CategoriaAbc | null;
+  stockActual: number;
+  ropCalculado: number | null;
+  eoqCalculado: number | null;
+  demandaPromedioDiaria: number | null;
 }
 
 export const dssRepository = {
@@ -437,5 +449,131 @@ export const dssRepository = {
           )
         );
     }
+  },
+
+  async obtenerProveedor(empresaId: string, proveedorId: string): Promise<{ id: string; nombre: string } | null> {
+    const rows = await db
+      .select({ id: proveedores.id, nombre: proveedores.nombre })
+      .from(proveedores)
+      .where(and(eq(proveedores.empresaId, empresaId), eq(proveedores.id, proveedorId)))
+      .limit(1);
+
+    return rows[0] ?? null;
+  },
+
+  async obtenerCostoPedidoProveedor(empresaId: string, proveedorId: string): Promise<number> {
+    const rows = await db
+      .select({ max: sql<string | null>`MAX(${productoProveedores.costoPedido})::numeric` })
+      .from(productoProveedores)
+      .where(and(
+        eq(productoProveedores.empresaId, empresaId),
+        eq(productoProveedores.proveedorId, proveedorId)
+      ));
+
+    const max = rows[0]?.max;
+    return max != null ? Number(max) : 50;
+  },
+
+  async obtenerPosicionesPorProveedor(
+    empresaId: string,
+    proveedorId: string
+  ): Promise<PosicionProductoConsolidacion[]> {
+    const rows = await db
+      .select({
+        productoId: parametrosCalculo.productoId,
+        categoriaAbc: parametrosCalculo.categoriaAbc,
+        ropCalculado: parametrosCalculo.ropCalculado,
+        eoqCalculado: parametrosCalculo.eoqCalculado,
+        stockActual: productos.stockActual,
+        sku: productos.sku,
+        nombre: productos.nombre,
+        enTransito: sql<string>`COALESCE(SUM(CASE WHEN ${ordenesCompra.estado} = 'en_transito' THEN ${ordenesCompra.cantidadPedida} ELSE 0 END), 0)::numeric`,
+      })
+      .from(productoProveedores)
+      .innerJoin(productos, eq(productoProveedores.productoId, productos.id))
+      .innerJoin(
+        parametrosCalculo,
+        and(
+          eq(parametrosCalculo.productoId, productos.id),
+          eq(parametrosCalculo.empresaId, empresaId),
+          eq(parametrosCalculo.esVigente, true)
+        )
+      )
+      .leftJoin(
+        ordenesCompra,
+        and(eq(ordenesCompra.productoId, productos.id), eq(ordenesCompra.empresaId, productos.empresaId))
+      )
+      .where(
+        and(
+          eq(productoProveedores.empresaId, empresaId),
+          eq(productoProveedores.proveedorId, proveedorId),
+          isNull(productos.deletedAt)
+        )
+      )
+      .groupBy(
+        parametrosCalculo.productoId,
+        parametrosCalculo.categoriaAbc,
+        parametrosCalculo.ropCalculado,
+        parametrosCalculo.eoqCalculado,
+        productos.stockActual,
+        productos.sku,
+        productos.nombre
+      );
+
+    return rows.map((r) => ({
+      productoId: r.productoId,
+      sku: r.sku,
+      nombre: r.nombre,
+      categoriaAbc: (r.categoriaAbc as CategoriaAbc | null) ?? null,
+      stockActual: Number(r.stockActual),
+      enTransito: Number(r.enTransito),
+      ropCalculado: r.ropCalculado != null ? Number(r.ropCalculado) : null,
+      eoqCalculado: r.eoqCalculado != null ? Number(r.eoqCalculado) : null,
+    }));
+  },
+
+  async obtenerDatosExplicacion(empresaId: string, productoId: string): Promise<DatosExplicacion | null> {
+    const rows = await db
+      .select({
+        productoId: productos.id,
+        sku: productos.sku,
+        nombre: productos.nombre,
+        categoriaAbc: parametrosCalculo.categoriaAbc,
+        stockActual: productos.stockActual,
+        ropCalculado: parametrosCalculo.ropCalculado,
+        eoqCalculado: parametrosCalculo.eoqCalculado,
+        demandaPromedioDiaria: parametrosCalculo.demandaPromedioDiaria,
+      })
+      .from(productos)
+      .leftJoin(
+        parametrosCalculo,
+        and(
+          eq(parametrosCalculo.productoId, productos.id),
+          eq(parametrosCalculo.empresaId, empresaId),
+          eq(parametrosCalculo.esVigente, true)
+        )
+      )
+      .where(
+        and(
+          eq(productos.empresaId, empresaId),
+          eq(productos.id, productoId),
+          isNull(productos.deletedAt)
+        )
+      )
+      .limit(1);
+
+    const r = rows[0];
+    if (!r) return null;
+
+    return {
+      productoId: r.productoId,
+      sku: r.sku,
+      nombre: r.nombre,
+      categoriaAbc: (r.categoriaAbc as CategoriaAbc | null) ?? null,
+      stockActual: Number(r.stockActual),
+      ropCalculado: r.ropCalculado != null ? Number(r.ropCalculado) : null,
+      eoqCalculado: r.eoqCalculado != null ? Number(r.eoqCalculado) : null,
+      demandaPromedioDiaria: r.demandaPromedioDiaria != null ? Number(r.demandaPromedioDiaria) : null,
+    };
   },
 };
