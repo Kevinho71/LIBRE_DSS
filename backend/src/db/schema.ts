@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, numeric, integer, timestamp, date, boolean, uniqueIndex, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, numeric, integer, timestamp, date, boolean, uniqueIndex, jsonb } from 'drizzle-orm/pg-core';
 
 // 1. EMPRESA (Inquilino / Tenant)
 export const empresas = pgTable('empresa', {
