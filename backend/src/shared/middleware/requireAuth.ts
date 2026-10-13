@@ -1,5 +1,5 @@
 import { LambdaEvent } from '../types/lambda';
-import { UnauthorizedError } from '../errors/AppError';
+import { UnauthorizedError, ForbiddenError } from '../errors/AppError';
 import { verifyJwt, JwtUserPayload } from '../utils/jwt';
 
 export type AuthUser = JwtUserPayload;
@@ -33,6 +33,14 @@ export function requireAuth(event: LambdaEvent): AuthUser {
 
 export function extractTenantId(event: LambdaEvent): string {
   return requireAuth(event).empresaId;
+}
+
+export function requireAdmin(event: LambdaEvent): AuthUser {
+  const user = requireAuth(event);
+  if (user.rol !== 'administrador') {
+    throw new ForbiddenError('ROL_INSUFICIENTE', 'Se requieren permisos de administrador para realizar esta acción');
+  }
+  return user;
 }
 
 export function optionalAuth(event: LambdaEvent): AuthUser | null {
