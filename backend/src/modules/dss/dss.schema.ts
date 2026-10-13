@@ -18,4 +18,9 @@ export const retrospectivaSchema = z.object({
   categoriaAbc: z.enum(['A', 'B', 'C']).default('A'),
 });
 
+export const explicarAlertaSchema = z.object({
+  productoId: z.string().uuid('productoId debe ser un UUID válido'),
+});
+
 export type RetrospectivaInput = z.infer<typeof retrospectivaSchema>;
+export type ExplicarAlertaInput = z.infer<typeof explicarAlertaSchema>;
