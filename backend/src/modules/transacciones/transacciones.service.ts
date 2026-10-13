@@ -11,6 +11,26 @@ import {
 import { logger } from '../../shared/utils/logger';
 import { NotFoundError } from '../../shared/errors/AppError';
 import { buildPaginatedResult } from '../../shared/utils/pagination';
+import { dssService } from '../dss/dss.service';
+import { AlertaReabastecimiento } from '../dss/dss.types';
+
+/**
+ * Evaluación de ROP posterior a una salida de almacén (HU-21 / LIB-35).
+ * Es de mejor esfuerzo: si la evaluación falla, la venta ya quedó confirmada y la
+ * recomendación simplemente se omite sin romper la operación transaccional.
+ */
+async function evaluarAlertaPostSalida(empresaId: string, productoId: string): Promise<AlertaReabastecimiento | null> {
+  try {
+    return await dssService.evaluarPosicionInventario(empresaId, productoId);
+  } catch (error) {
+    logger.warn('Evaluación de ROP post-salida falló; se omite la recomendación', {
+      empresaId,
+      productoId,
+      error,
+    });
+    return null;
+  }
+}
 
 export const transaccionesService = {
   async registrarVenta(empresaId: string, data: RegistrarVentaDto) {
@@ -39,10 +59,13 @@ export const transaccionesService = {
       estadoPago: data.estadoPago || 'contado',
     });
 
+    const alerta = await evaluarAlertaPostSalida(empresaId, data.productoId);
+
     return {
       idempotente: false,
       transaccion: resultado.transaccion,
       nuevoStock: resultado.nuevoStock,
+      alerta,
       mensaje: 'Venta registrada exitosamente',
     };
   },
@@ -72,11 +95,16 @@ export const transaccionesService = {
       estadoPago: data.estadoPago || 'contado',
     });
 
+    const alertas = (
+      await Promise.all(data.items.map((i) => evaluarAlertaPostSalida(empresaId, i.productoId)))
+    ).filter((a): a is AlertaReabastecimiento => a !== null);
+
     return {
       idempotente: false,
       notaId: resultado.notaId,
       transacciones: resultado.transacciones,
       totalItems: resultado.transacciones.length,
+      alertas,
       mensaje: 'Nota de venta registrada exitosamente',
     };
   },
