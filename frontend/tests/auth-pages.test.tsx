@@ -6,8 +6,6 @@ import { AuthProvider } from '@/context/AuthContext';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { AdminRoute } from '@/components/auth/AdminRoute';
-import { client } from '@/api/client';
 
 describe('Auth Pages & Route Guards Tests', () => {
   beforeEach(() => {

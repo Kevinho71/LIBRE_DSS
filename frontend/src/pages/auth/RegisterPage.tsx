@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ApiError } from '@/api/client';
-import { Building2, User, Mail, Lock, CheckCircle2, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { Building2, User, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react';
 import { z } from 'zod';
 
 const RegisterValidationSchema = z

@@ -30,13 +30,13 @@ const server = http.createServer(async (req, res) => {
     const rawBody = Buffer.concat(chunks).toString('utf-8');
     const [pathPart, queryPart] = (req.url || '/').split('?');
 
-    const queryParams: Record<string, string> = {};
-    if (queryPart) {
-      const searchParams = new URLSearchParams(queryPart);
-      searchParams.forEach((value, key) => {
-        queryParams[key] = value;
-      });
-    }
+    const queryParams: Record<string, string> = queryPart
+      ? Object.fromEntries(
+          Array.from(new URLSearchParams(queryPart).entries()).filter(
+            ([key]) => key !== '__proto__' && key !== 'constructor' && key !== 'prototype'
+          )
+        )
+      : {};
 
     const event: LambdaEvent = {
       rawPath: pathPart,
@@ -58,6 +58,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const response = await handler(event);
       res.statusCode = response.statusCode;
+      res.setHeader('Content-Type', 'application/json');
       if (response.headers) {
         for (const [key, value] of Object.entries(response.headers)) {
           res.setHeader(key, value);
