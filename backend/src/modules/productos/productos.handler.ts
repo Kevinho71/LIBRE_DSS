@@ -1,5 +1,5 @@
 import { LambdaEvent, LambdaResponse, ok, created, noContent, parseBody } from '../../shared/types/lambda';
-import { CreateProductoSchema, UpdateProductoSchema, ListProductosQuerySchema } from './productos.schema';
+import { CreateProductoSchema, UpdateProductoSchema, ListProductosQuerySchema, ImportarCsvSchema } from './productos.schema';
 import { productosService } from './productos.service';
 import { extractTenantId } from '../../shared/middleware/requireAuth';
 
@@ -46,4 +46,12 @@ export async function buscarProductosHandler(event: LambdaEvent): Promise<Lambda
   const limit = queryParams.limit ? Number(queryParams.limit) : 10;
   const result = await productosService.buscarRapido(empresaId, q, limit);
   return ok({ items: result, total: result.length });
+}
+
+export async function importarCsvHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const rawBody = parseBody(event.body, event.isBase64Encoded);
+  const dto = ImportarCsvSchema.parse(rawBody);
+  const result = await productosService.importarCsv(empresaId, dto);
+  return created(result);
 }

@@ -6,14 +6,82 @@ import {
   ProductoDto,
   ProductoListItemDto,
   EstadoAlerta,
+  ImportarCsvDto,
+  ResultadoImportacionCsv,
+  OmitidoCsv,
 } from './productos.types';
-import { ConflictError, NotFoundError, ForbiddenError } from '../../shared/errors/AppError';
+import { ConflictError, NotFoundError, ForbiddenError, ValidationError } from '../../shared/errors/AppError';
 import { extractPagination, buildPaginatedResult, PaginatedResult } from '../../shared/utils/pagination';
 import { logger } from '../../shared/utils/logger';
-import { CreateProductoSchema, UpdateProductoSchema } from './productos.schema';
+import { CreateProductoSchema, UpdateProductoSchema, FilaCsvProductoSchema } from './productos.schema';
 import { productos } from '../../db/schema';
+import Papa from 'papaparse';
 
 const MAX_FREE_SKUS = 15;
+
+interface FilaCsvCruda {
+  fila: number;
+  datos: Record<string, unknown>;
+}
+
+function normalizarHeader(h: string): string {
+  if (h == null) return '';
+  const clean = h
+    .trim()
+    .toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u')
+    .replace(/[\s-]+/g, '_');
+
+  const mapa: Record<string, string> = {
+    nombre: 'nombre',
+    sku: 'sku',
+    unidad_medida: 'unidadMedida',
+    unidadmedida: 'unidadMedida',
+    unidad_compra: 'unidadCompra',
+    unidadcompra: 'unidadCompra',
+    factor_conversion: 'factorConversion',
+    factorconversion: 'factorConversion',
+    costo_unitario: 'costoUnitario',
+    costounitario: 'costoUnitario',
+    precio_venta: 'precioVenta',
+    precioventa: 'precioVenta',
+    costo_pedido: 'costoPedido',
+    costopedido: 'costoPedido',
+    tasa_mantenimiento_anual: 'tasaMantenimientoAnual',
+    tasamantenimientoanual: 'tasaMantenimientoAnual',
+    tasa_mantenimiento: 'tasaMantenimientoAnual',
+    stock_actual: 'stockActual',
+    stockactual: 'stockActual',
+    stock_minimo_manual: 'stockMinimoManual',
+    stock_minimo: 'stockMinimoManual',
+    stock_maximo_manual: 'stockMaximoManual',
+    stock_maximo: 'stockMaximoManual',
+  };
+
+  return mapa[clean] ?? h.trim();
+}
+
+function parsearCsv(contenido: string): FilaCsvCruda[] {
+  const resultado = Papa.parse<Record<string, unknown>>(contenido, {
+    header: true,
+    skipEmptyLines: 'greedy',
+    transformHeader: (h) => normalizarHeader(h),
+  });
+
+  if (resultado.errors.length > 0 && resultado.data.length === 0) {
+    throw new ValidationError(
+      'CSV_INVALIDO',
+      'El archivo CSV no pudo parsearse correctamente',
+      resultado.errors.map((e) => ({ fila: e.row, mensaje: e.message }))
+    );
+  }
+
+  return resultado.data.map((fila, idx) => ({ fila: idx + 2, datos: fila as Record<string, unknown> }));
+}
 
 function toProductoDto(row: typeof productos.$inferSelect): ProductoDto {
   return {
@@ -170,5 +238,101 @@ export const productosService = {
 
   async buscarRapido(empresaId: string, query: string, limit = 10) {
     return productosRepository.buscarRapido(empresaId, query, limit);
+  },
+
+  async importarCsv(empresaId: string, inputDto: ImportarCsvDto): Promise<ResultadoImportacionCsv> {
+    const filasCrudas = parsearCsv(inputDto.contenido);
+    if (filasCrudas.length === 0) {
+      throw new ValidationError('CSV_VACIO', 'El archivo CSV no contiene filas de datos');
+    }
+
+    // 1. Validación Zod fila por fila (all-or-nothing sobre errores de formato).
+    const errores: Array<{ fila: number; mensaje: string }> = [];
+    const validas: Array<{ fila: number; datos: ReturnType<typeof FilaCsvProductoSchema.parse> }> = [];
+
+    for (const fila of filasCrudas) {
+      const resultado = FilaCsvProductoSchema.safeParse(fila.datos);
+      if (!resultado.success) {
+        const detalle = resultado.error.issues
+          .map((i) => `${i.path.join('.')}: ${i.message}`)
+          .join('; ');
+        errores.push({ fila: fila.fila, mensaje: detalle });
+        continue;
+      }
+      validas.push({ fila: fila.fila, datos: resultado.data });
+    }
+
+    if (errores.length > 0) {
+      throw new ValidationError(
+        'CSV_FILAS_INVALIDAS',
+        `Se encontraron ${errores.length} fila(s) con datos inválidos. No se importó ningún producto.`,
+        errores
+      );
+    }
+
+    // 2. Deduplicación de SKUs: dentro del CSV y contra el catálogo activo.
+    const omitidos: OmitidoCsv[] = [];
+    const skusEnArchivo = validas
+      .map((f) => f.datos.sku)
+      .filter((s): s is string => s != null && s.trim() !== '')
+      .map((s) => s.trim());
+
+    const skusEnBd = await productosRepository.findBySkus(empresaId, skusEnArchivo);
+    const skusBdSet = new Set(skusEnBd.map((s) => s.trim()));
+
+    const skusVistos = new Set<string>();
+    const unicas = validas.filter((f) => {
+      const sku = f.datos.sku?.trim() ?? null;
+      if (sku == null) return true;
+
+      if (skusVistos.has(sku)) {
+        omitidos.push({ fila: f.fila, sku, motivo: 'SKU_DUPLICADO' });
+        return false;
+      }
+      if (skusBdSet.has(sku)) {
+        omitidos.push({ fila: f.fila, sku, motivo: 'SKU_DUPLICADO' });
+        return false;
+      }
+      skusVistos.add(sku);
+      return true;
+    });
+
+    // 3. Límite freemium: truncar al cupo disponible con aviso.
+    const plan = await productosRepository.getEmpresaPlan(empresaId);
+    let aImportar = unicas;
+    let avisoFreemium: string | null = null;
+
+    if (plan === 'gratuito') {
+      const actuales = await productosRepository.countActivos(empresaId);
+      const cupo = Math.max(0, MAX_FREE_SKUS - actuales);
+      if (unicas.length > cupo) {
+        const excedentes = unicas.slice(cupo);
+        for (const f of excedentes) {
+          omitidos.push({ fila: f.fila, sku: f.datos.sku?.trim() ?? null, motivo: 'LIMITE_SKUS' });
+        }
+        aImportar = unicas.slice(0, cupo);
+        avisoFreemium = `El plan gratuito permite ${MAX_FREE_SKUS} SKUs. Se importaron ${aImportar.length} y se omitieron ${excedentes.length} por exceder el límite.`;
+      }
+    }
+
+    // 4. Inserción atómica.
+    const importados = await productosRepository.bulkInsert(
+      empresaId,
+      aImportar.map((f) => f.datos)
+    );
+
+    logger.info('Importación CSV de catálogo completada', {
+      empresaId,
+      importados,
+      omitidos: omitidos.length,
+      avisoFreemium,
+    });
+
+    return {
+      importados,
+      omitidos: omitidos.length,
+      avisoFreemium,
+      omitidosDetalle: omitidos,
+    };
   },
 };

@@ -6,6 +6,11 @@ import { calcularRop } from '../../engine/ropService';
 import { calcularPosicionInventario, evaluarReorden } from '../../engine/inventoryPosition';
 import { asignarPolitica, calcularSistemaP } from '../../engine/periodicService';
 import { evaluarFaseArranque, evaluarAlertaMinMax } from '../../engine/coldStartService';
+import { consolidarPedidoProveedor } from '../../engine/consolidacion';
+import { generarExplicacionBase } from '../../engine/explicador';
+import { enriquecerExplicacionConIA } from './dss.explicador';
+import { NotFoundError } from '../../shared/errors/AppError';
+import { env } from '../../shared/utils/env';
 import {
   ejecutarRetrospectiva,
   ParametrosSerieRetrospectiva,
@@ -25,6 +30,8 @@ import {
   ResultadoAsignacionSistemas,
   AlertaMinMax,
   PanelAlertasMinMax,
+  SugerenciaProveedor,
+  ExplicacionAlerta,
 } from './dss.types';
 
 const DIAS_ANIO = 365;
@@ -464,5 +471,81 @@ export const dssService = {
     });
 
     return resultado;
+  },
+
+  async obtenerSugerenciasProveedor(empresaId: string, proveedorId: string): Promise<SugerenciaProveedor> {
+    const proveedor = await dssRepository.obtenerProveedor(empresaId, proveedorId);
+    if (!proveedor) {
+      throw new NotFoundError('PROVEEDOR_NO_ENCONTRADO', 'El proveedor solicitado no existe en su empresa');
+    }
+
+    const posiciones = await dssRepository.obtenerPosicionesPorProveedor(empresaId, proveedorId);
+    const costoPedido = await dssRepository.obtenerCostoPedidoProveedor(empresaId, proveedorId);
+
+    const resultado = consolidarPedidoProveedor(posiciones, costoPedido);
+
+    logger.info('Sugerencia de orden consolidada por proveedor calculada', {
+      empresaId,
+      proveedorId,
+      totalLineas: resultado.totalLineas,
+      ahorroEstimado: resultado.ahorroEstimado,
+    });
+
+    return {
+      proveedorId: proveedor.id,
+      nombreProveedor: proveedor.nombre,
+      costoPedido,
+      totalLineas: resultado.totalLineas,
+      ahorroEstimado: resultado.ahorroEstimado,
+      lineas: resultado.lineas,
+    };
+  },
+
+  async explicarAlerta(empresaId: string, productoId: string): Promise<ExplicacionAlerta> {
+    const datos = await dssRepository.obtenerDatosExplicacion(empresaId, productoId);
+    if (!datos) {
+      throw new NotFoundError('PRODUCTO_NO_ENCONTRADO', 'El producto solicitado no fue encontrado');
+    }
+
+    const contexto = {
+      nombre: datos.nombre,
+      sku: datos.sku,
+      categoriaAbc: datos.categoriaAbc,
+      stockActual: datos.stockActual,
+      ropCalculado: datos.ropCalculado,
+      eoqCalculado: datos.eoqCalculado,
+      demandaPromedioDiaria: datos.demandaPromedioDiaria,
+    };
+
+    const base = generarExplicacionBase(contexto);
+
+    // Enriquecimiento con IA (best-effort). Si falla o no hay API key, se usa la plantilla.
+    try {
+      if (env.GEMINI_API_KEY) {
+        const enriquecida = await enriquecerExplicacionConIA(contexto);
+        logger.info('Explicación de alerta enriquecida con Gemini', { empresaId, productoId });
+        return {
+          productoId,
+          sku: datos.sku,
+          nombre: datos.nombre,
+          explicacion: enriquecida,
+          fuente: 'gemini',
+        };
+      }
+    } catch (error) {
+      logger.warn('Fallo en el enriquecimiento IA de la explicación; se usa la plantilla determinística', {
+        empresaId,
+        productoId,
+        error,
+      });
+    }
+
+    return {
+      productoId,
+      sku: datos.sku,
+      nombre: datos.nombre,
+      explicacion: base,
+      fuente: 'plantilla',
+    };
   },
 };

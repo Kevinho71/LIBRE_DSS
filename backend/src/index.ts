@@ -9,6 +9,7 @@ import {
   eliminarProductoHandler,
   listarProductosHandler,
   buscarProductosHandler,
+  importarCsvHandler,
 } from './modules/productos/productos.handler';
 import {
   crearProveedorHandler,
@@ -38,9 +39,11 @@ import {
   obtenerSistemasHandler,
   obtenerAlertasMinMaxHandler,
   retrospectivaHandler,
+  sugerenciasProveedorHandler,
+  explicarAlertaHandler,
 } from './modules/dss/dss.handler';
 import { extraerIngestaHandler, confirmarIngestaHandler } from './modules/ai/ai.handler';
-import { obtenerDashboardKpisHandler } from './modules/dashboard/dashboard.handler';
+import { obtenerDashboardKpisHandler, obtenerReporteCostosHandler } from './modules/dashboard/dashboard.handler';
 import {
   listarUsuariosHandler,
   crearUsuarioHandler,
@@ -100,6 +103,7 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
 
     if (segments.length === 2) {
       if (segments[1] === 'buscar' && method === 'GET') return buscarProductosHandler(event);
+      if (segments[1] === 'importar-csv' && method === 'POST') return importarCsvHandler(event);
       const id = segments[1];
       if (method === 'GET') return obtenerProductoHandler(event, id);
       if (method === 'PUT') return actualizarProductoHandler(event, id);
@@ -189,6 +193,17 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
     if (segments.length === 2 && segments[1] === 'retrospectiva' && method === 'POST') {
       return retrospectivaHandler(event);
     }
+
+    // --- NUEVAS RUTAS FASE 6 ---
+    // GET /dss/sugerencias-proveedor/:proveedorId
+    if (segments.length === 3 && segments[1] === 'sugerencias-proveedor' && method === 'GET') {
+      return sugerenciasProveedorHandler(event, segments[2]);
+    }
+
+    // POST /dss/explicar-alerta
+    if (segments.length === 2 && segments[1] === 'explicar-alerta' && method === 'POST') {
+      return explicarAlertaHandler(event);
+    }
   }
 
   // 9. Ingesta asistida por IA (/ingesta/*)
@@ -205,6 +220,9 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
   if (resource === 'dashboard') {
     if (segments.length === 2 && segments[1] === 'kpis' && method === 'GET') {
       return obtenerDashboardKpisHandler(event);
+    }
+    if (segments.length === 2 && segments[1] === 'reporte-costos' && method === 'GET') {
+      return obtenerReporteCostosHandler(event);
     }
   }
 

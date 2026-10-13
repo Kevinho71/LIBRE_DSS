@@ -1,6 +1,7 @@
 import { CategoriaAbc } from '../../engine/abcService';
 import { FaseArranque, TipoAlertaMinMax } from '../../engine/coldStartService';
 import { PoliticaInventario } from '../../engine/periodicService';
+import { LineaSugeridaConsolidacion } from '../../engine/consolidacion';
 
 export interface ResumenClaseAbc {
   categoria: CategoriaAbc;
@@ -122,4 +123,21 @@ export interface AlertaMinMax {
 export interface PanelAlertasMinMax {
   totalAlertas: number;
   alertas: AlertaMinMax[];
+}
+
+export interface SugerenciaProveedor {
+  proveedorId: string;
+  nombreProveedor: string;
+  costoPedido: number;
+  totalLineas: number;
+  ahorroEstimado: number;
+  lineas: LineaSugeridaConsolidacion[];
+}
+
+export interface ExplicacionAlerta {
+  productoId: string;
+  sku: string | null;
+  nombre: string;
+  explicacion: string;
+  fuente: 'plantilla' | 'gemini';
 }

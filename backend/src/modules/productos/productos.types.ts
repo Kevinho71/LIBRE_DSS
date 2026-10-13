@@ -1,8 +1,29 @@
-import { CreateProductoInput, UpdateProductoInput, ListProductosQueryInput } from './productos.schema';
+import {
+  CreateProductoInput,
+  UpdateProductoInput,
+  ListProductosQueryInput,
+  FilaCsvProducto,
+  ImportarCsvInput,
+} from './productos.schema';
 
 export type CreateProductoDto = CreateProductoInput;
 export type UpdateProductoDto = UpdateProductoInput;
 export type ListProductosQueryDto = ListProductosQueryInput;
+export type FilaCsvProductoDto = FilaCsvProducto;
+export type ImportarCsvDto = ImportarCsvInput;
+
+export interface OmitidoCsv {
+  fila: number;
+  sku: string | null;
+  motivo: 'SKU_DUPLICADO' | 'LIMITE_SKUS';
+}
+
+export interface ResultadoImportacionCsv {
+  importados: number;
+  omitidos: number;
+  avisoFreemium: string | null;
+  omitidosDetalle: OmitidoCsv[];
+}
 
 export type EstadoAlerta = 'normal' | 'stock_minimo' | 'rop_alcanzado' | 'sin_stock';
 

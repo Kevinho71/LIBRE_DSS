@@ -1,6 +1,7 @@
 import { db } from '../../db/client';
-import { empresas, productos, transacciones, parametrosCalculo, ordenesCompra } from '../../db/schema';
+import { empresas, productos, transacciones, parametrosCalculo, ordenesCompra, productoProveedores } from '../../db/schema';
 import { and, eq, isNull, sql, gte, inArray } from 'drizzle-orm';
+import { CategoriaAbc } from '../../engine/abcService';
 
 export interface ResumenProductos {
   productosActivos: number;
@@ -114,4 +115,129 @@ export const dashboardRepository = {
       precioVenta: Number(r.precioVenta),
     }));
   },
+
+  async existeProducto(empresaId: string, productoId: string): Promise<boolean> {
+    const rows = await db
+      .select({ id: productos.id })
+      .from(productos)
+      .where(and(eq(productos.id, productoId), eq(productos.empresaId, empresaId), isNull(productos.deletedAt)))
+      .limit(1);
+    return rows.length > 0;
+  },
+
+  async obtenerDatosReporteCostos(
+    empresaId: string,
+    productoId?: string
+  ): Promise<DatosProductoReporte[]> {
+    const conditions = [
+      eq(productos.empresaId, empresaId),
+      isNull(productos.deletedAt),
+      eq(parametrosCalculo.esVigente, true),
+    ];
+
+    if (productoId) {
+      conditions.push(eq(productos.id, productoId));
+    }
+
+    const rows = await db
+      .select({
+        id: productos.id,
+        sku: productos.sku,
+        nombre: productos.nombre,
+        stockActual: productos.stockActual,
+        costoUnitario: productos.costoUnitario,
+        precioVenta: productos.precioVenta,
+        costoPedidoProducto: productos.costoPedido,
+        tasaMantenimientoAnual: productos.tasaMantenimientoAnual,
+        costoPedidoProveedor: productoProveedores.costoPedido,
+        leadTimeDias: productoProveedores.leadTimeDias,
+        ropCalculado: parametrosCalculo.ropCalculado,
+        eoqCalculado: parametrosCalculo.eoqCalculado,
+        stockSeguridadCalculado: parametrosCalculo.stockSeguridadCalculado,
+        demandaPromedioDiaria: parametrosCalculo.demandaPromedioDiaria,
+        categoriaAbc: parametrosCalculo.categoriaAbc,
+      })
+      .from(productos)
+      .innerJoin(
+        parametrosCalculo,
+        and(
+          eq(parametrosCalculo.productoId, productos.id),
+          eq(parametrosCalculo.empresaId, productos.empresaId)
+        )
+      )
+      .leftJoin(
+        productoProveedores,
+        and(
+          eq(productoProveedores.productoId, productos.id),
+          eq(productoProveedores.empresaId, productos.empresaId),
+          eq(productoProveedores.esPrincipal, true)
+        )
+      )
+      .where(and(...conditions));
+
+    return rows.map((r) => ({
+      id: r.id,
+      sku: r.sku,
+      nombre: r.nombre,
+      stockActual: Number(r.stockActual),
+      costoUnitario: Number(r.costoUnitario),
+      precioVenta: Number(r.precioVenta),
+      costoPedido: Number(r.costoPedidoProveedor ?? r.costoPedidoProducto ?? 50),
+      tasaMantenimientoAnual: Number(r.tasaMantenimientoAnual ?? 0.2),
+      leadTimeDias: r.leadTimeDias != null ? Number(r.leadTimeDias) : 3,
+      ropCalculado: r.ropCalculado != null ? Number(r.ropCalculado) : null,
+      eoqCalculado: r.eoqCalculado != null ? Number(r.eoqCalculado) : null,
+      stockSeguridadCalculado: r.stockSeguridadCalculado != null ? Number(r.stockSeguridadCalculado) : null,
+      demandaPromedioDiaria: r.demandaPromedioDiaria != null ? Number(r.demandaPromedioDiaria) : null,
+      categoriaAbc: (r.categoriaAbc as CategoriaAbc) ?? null,
+    }));
+  },
+
+  async obtenerVentasPorDia(
+    empresaId: string,
+    productoIds: string[],
+    fechaDesde: string
+  ): Promise<Array<{ productoId: string; fechaEvento: string; cantidadNeta: number }>> {
+    if (productoIds.length === 0) return [];
+
+    const rows = await db
+      .select({
+        productoId: transacciones.productoId,
+        fechaEvento: transacciones.fechaEvento,
+        cantidadNeta: sql<string>`COALESCE(SUM(CASE WHEN ${transacciones.tipo} = 'venta' THEN ${transacciones.cantidad} ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN ${transacciones.tipo} = 'devolucion_cliente' THEN ${transacciones.cantidad} ELSE 0 END), 0)`,
+      })
+      .from(transacciones)
+      .where(
+        and(
+          eq(transacciones.empresaId, empresaId),
+          gte(transacciones.fechaEvento, fechaDesde),
+          inArray(transacciones.productoId, productoIds)
+        )
+      )
+      .groupBy(transacciones.productoId, transacciones.fechaEvento);
+
+    return rows.map((r) => ({
+      productoId: r.productoId,
+      fechaEvento: r.fechaEvento,
+      cantidadNeta: Math.max(0, Number(r.cantidadNeta)),
+    }));
+  },
 };
+
+export interface DatosProductoReporte {
+  id: string;
+  sku: string | null;
+  nombre: string;
+  stockActual: number;
+  costoUnitario: number;
+  precioVenta: number;
+  costoPedido: number;
+  tasaMantenimientoAnual: number;
+  leadTimeDias: number;
+  ropCalculado: number | null;
+  eoqCalculado: number | null;
+  stockSeguridadCalculado: number | null;
+  demandaPromedioDiaria: number | null;
+  categoriaAbc: CategoriaAbc | null;
+}

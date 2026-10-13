@@ -1,6 +1,6 @@
 import { LambdaEvent, LambdaResponse, ok, parseBody } from '../../shared/types/lambda';
 import { extractTenantId } from '../../shared/middleware/requireAuth';
-import { retrospectivaSchema } from './dss.schema';
+import { retrospectivaSchema, explicarAlertaSchema } from './dss.schema';
 import { dssService } from './dss.service';
 
 export async function recalcularAbcHandler(event: LambdaEvent): Promise<LambdaResponse> {
@@ -56,5 +56,19 @@ export async function retrospectivaHandler(event: LambdaEvent): Promise<LambdaRe
   const rawBody = parseBody(event.body, event.isBase64Encoded);
   const dto = retrospectivaSchema.parse(rawBody);
   const result = await dssService.simularRetrospectiva(empresaId, dto);
+  return ok(result);
+}
+
+export async function sugerenciasProveedorHandler(event: LambdaEvent, proveedorId: string): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.obtenerSugerenciasProveedor(empresaId, proveedorId);
+  return ok(result);
+}
+
+export async function explicarAlertaHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const rawBody = parseBody(event.body, event.isBase64Encoded);
+  const dto = explicarAlertaSchema.parse(rawBody);
+  const result = await dssService.explicarAlerta(empresaId, dto.productoId);
   return ok(result);
 }
