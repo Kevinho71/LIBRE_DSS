@@ -22,7 +22,7 @@ import { ProductAutocomplete } from '@/components/transacciones/ProductAutocompl
 import { ingestaApi } from '@/api/ingesta.api';
 import { storageApi } from '@/api/storage.api';
 import { ApiError } from '@/api/client';
-import { comprimirImagen, esImagenValida, MAX_TAMANO_ENTRADA_BYTES } from '@/lib/imageCompression';
+import { comprimirImagen, esImagenValida, MAX_TAMANO_ENTRADA_BYTES, type FotoComprimida } from '@/lib/imageCompression';
 import { generarUuid } from '@/lib/idempotency';
 import { useAuth } from '@/context/AuthContext';
 import { hoyISO } from '@/lib/format';
@@ -102,9 +102,7 @@ export const ReceiptReviewPage: React.FC = () => {
   const [confirmacion, setConfirmacion] = useState<ResultadoConfirmacion | null>(null);
 
   const analizar = useMutation({
-    mutationFn: async (file: File) => {
-      setEstado('comprimiendo');
-      const comprimida = await comprimirImagen(file);
+    mutationFn: async (comprimida: FotoComprimida) => {
       setEstado('subiendo');
       const presigned = await storageApi.solicitarPresignedUrl(comprimida.filename, comprimida.contentType);
       await storageApi.subirArchivo(presigned.uploadUrl, comprimida.blob, comprimida.contentType);
@@ -132,7 +130,7 @@ export const ReceiptReviewPage: React.FC = () => {
     },
   });
 
-  const seleccionarArchivo = (file: File | undefined) => {
+  const seleccionarArchivo = async (file: File | undefined) => {
     if (!file) return;
     setErrores([]);
     if (!esImagenValida(file)) {
@@ -143,10 +141,20 @@ export const ReceiptReviewPage: React.FC = () => {
       setErrores(['La imagen supera el límite de 12 MB.']);
       return;
     }
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(URL.createObjectURL(file));
-    setFileName(file.name);
-    analizar.mutate(file);
+
+    setEstado('comprimiendo');
+    try {
+      // La vista previa usa el blob ya comprimido en Canvas (no el archivo original),
+      // así se muestra exactamente lo que se sube y no se inyecta el File en el DOM.
+      const comprimida = await comprimirImagen(file);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(comprimida.blob));
+      setFileName(comprimida.filename);
+      analizar.mutate(comprimida);
+    } catch {
+      setEstado('idle');
+      setErrores(['No se pudo procesar la imagen. Intenta con otra fotografía.']);
+    }
   };
 
   const reiniciar = () => {
@@ -305,7 +313,7 @@ export const ReceiptReviewPage: React.FC = () => {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => seleccionarArchivo(e.target.files?.[0])}
+              onChange={(e) => void seleccionarArchivo(e.target.files?.[0])}
               aria-label="Adjuntar imagen del recibo"
             />
           </div>
