@@ -64,7 +64,12 @@ export const AppLayout: React.FC = () => {
       icon: PieChart,
       active: location.pathname === ROUTES.abc,
     },
-    { name: 'Alertas EOQ/ROP (Fase 5)', href: '#', icon: BellRing, disabled: true },
+    {
+      name: 'Alertas EOQ/ROP',
+      href: ROUTES.alertas,
+      icon: BellRing,
+      active: location.pathname === ROUTES.alertas,
+    },
   ];
 
   return (
