@@ -4,6 +4,8 @@ export const ROUTES = {
   venta: '/transacciones/venta',
   ingreso: '/transacciones/ingreso',
   ajuste: '/transacciones/ajuste',
+  abc: '/abc',
+  ingesta: '/ingesta',
   login: '/login',
   register: '/register',
   terminos: '/terminos',
