@@ -1,8 +1,10 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertasResumenCard } from '@/components/dss/AlertasResumenCard';
+import { ROUTES } from '@/lib/routes';
 import { Building2, Package, Sparkles, TrendingUp, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -125,17 +127,13 @@ export const DashboardPage: React.FC = () => {
             de datos PostgreSQL. Todos los tokens y sesiones son validados criptográficamente en cada interacción con la API.
           </p>
           <div className="pt-2 flex flex-wrap gap-3">
-            <a
-              href="#docs"
-              onClick={(e) => {
-                e.preventDefault();
-                alert('La Fase 2 (Catálogo y Proveedores) se implementará en el siguiente incremento.');
-              }}
+            <Link
+              to={ROUTES.catalogo}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
             >
-              <span>Ver hoja de ruta de implementación</span>
+              <span>Gestionar catálogo de productos</span>
               <ArrowUpRight className="h-3.5 w-3.5" />
-            </a>
+            </Link>
           </div>
         </CardContent>
       </Card>

@@ -1,5 +1,7 @@
 export const ROUTES = {
   dashboard: '/dashboard',
+  catalogo: '/catalogo',
+  proveedores: '/proveedores',
   transacciones: '/transacciones',
   venta: '/transacciones/venta',
   ingreso: '/transacciones/ingreso',

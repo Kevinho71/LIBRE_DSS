@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { Button } from '@/components/ui/button';
@@ -24,12 +25,20 @@ import {
   FileScan,
 } from 'lucide-react';
 
+interface NavItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  active?: boolean;
+  disabled?: boolean;
+}
+
 export const AppLayout: React.FC = () => {
   const { usuario, empresa, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
-  const navigation = [
+  const navigation: NavItem[] = [
     { name: 'Dashboard', href: ROUTES.dashboard, icon: LayoutDashboard, active: location.pathname === ROUTES.dashboard },
     {
       name: 'Kardex / Historial',
@@ -56,8 +65,8 @@ export const AppLayout: React.FC = () => {
       icon: FileScan,
       active: location.pathname === ROUTES.ingesta,
     },
-    { name: 'Catálogo (Fase 2)', href: '#', icon: Package, disabled: true },
-    { name: 'Proveedores (Fase 2)', href: '#', icon: Truck, disabled: true },
+    { name: 'Catálogo', href: ROUTES.catalogo, icon: Package, active: location.pathname === ROUTES.catalogo },
+    { name: 'Proveedores', href: ROUTES.proveedores, icon: Truck, active: location.pathname === ROUTES.proveedores },
     {
       name: 'Clasificación ABC',
       href: ROUTES.abc,

@@ -10,6 +10,8 @@ import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { TermsPage } from '@/pages/legal/TermsPage';
 import { PrivacyPage } from '@/pages/legal/PrivacyPage';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
+import { ProductosPage } from '@/pages/catalogo/ProductosPage';
+import { ProveedoresPage } from '@/pages/catalogo/ProveedoresPage';
 import { KardexPage } from '@/pages/transacciones/KardexPage';
 import { VentaPage } from '@/pages/transacciones/VentaPage';
 import { IngresoPage } from '@/pages/transacciones/IngresoPage';
@@ -68,6 +70,8 @@ export function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="catalogo" element={<ProductosPage />} />
+              <Route path="proveedores" element={<ProveedoresPage />} />
               <Route path="transacciones" element={<KardexPage />} />
               <Route path="transacciones/venta" element={<VentaPage />} />
               <Route path="transacciones/ingreso" element={<IngresoPage />} />
