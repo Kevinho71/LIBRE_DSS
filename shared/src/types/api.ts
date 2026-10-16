@@ -66,22 +66,6 @@ export interface RegisterEmpresaRequest {
   passwordAdmin: string;
 }
 
-export interface CrearProductoDTO {
-  sku?: string;
-  nombre: string;
-  unidadMedida?: string;
-  unidadCompra?: string;
-  factorConversion?: number;
-  costoUnitario: number;
-  precioVenta: number;
-  costoPedido?: number;
-  tasaMantenimientoAnual?: number;
-  stockActual?: number;
-  stockMinimoManual?: number;
-  stockMaximoManual?: number;
-  origenDato?: 'manual' | 'csv' | 'ocr';
-}
-
 export interface RegistrarTransaccionDTO {
   notaId?: string;
   productoId: string;
