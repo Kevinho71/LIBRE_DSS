@@ -21,6 +21,7 @@ import {
   ClipboardList,
   ShoppingCart,
   PackagePlus,
+  FileScan,
 } from 'lucide-react';
 
 export const AppLayout: React.FC = () => {
@@ -49,9 +50,20 @@ export const AppLayout: React.FC = () => {
       icon: ArrowLeftRight,
       active: location.pathname === ROUTES.ajuste,
     },
+    {
+      name: 'Ingesta IA',
+      href: ROUTES.ingesta,
+      icon: FileScan,
+      active: location.pathname === ROUTES.ingesta,
+    },
     { name: 'Catálogo (Fase 2)', href: '#', icon: Package, disabled: true },
     { name: 'Proveedores (Fase 2)', href: '#', icon: Truck, disabled: true },
-    { name: 'Motor ABC (Fase 4)', href: '#', icon: PieChart, disabled: true },
+    {
+      name: 'Clasificación ABC',
+      href: ROUTES.abc,
+      icon: PieChart,
+      active: location.pathname === ROUTES.abc,
+    },
     { name: 'Alertas EOQ/ROP (Fase 5)', href: '#', icon: BellRing, disabled: true },
   ];
 

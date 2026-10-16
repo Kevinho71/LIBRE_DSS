@@ -14,6 +14,8 @@ import { KardexPage } from '@/pages/transacciones/KardexPage';
 import { VentaPage } from '@/pages/transacciones/VentaPage';
 import { IngresoPage } from '@/pages/transacciones/IngresoPage';
 import { AjustePage } from '@/pages/transacciones/AjustePage';
+import { AbcPage } from '@/pages/abc/AbcPage';
+import { ReceiptReviewPage } from '@/pages/ingesta/ReceiptReviewPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 const queryClient = new QueryClient({
@@ -69,6 +71,8 @@ export function App() {
               <Route path="transacciones/venta" element={<VentaPage />} />
               <Route path="transacciones/ingreso" element={<IngresoPage />} />
               <Route path="transacciones/ajuste" element={<AjustePage />} />
+              <Route path="abc" element={<AbcPage />} />
+              <Route path="ingesta" element={<ReceiptReviewPage />} />
             </Route>
 
             {/* 404 No Encontrado */}

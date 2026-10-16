@@ -15,6 +15,8 @@ export interface ProductAutocompleteProps {
   id?: string;
   error?: string;
   disabled?: boolean;
+  /** Reemplaza la línea de metadatos cuando hay un producto seleccionado (p. ej. coincidencia IA). */
+  detalleSeleccion?: React.ReactNode;
 }
 
 export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
@@ -25,6 +27,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   id,
   error,
   disabled,
+  detalleSeleccion,
 }) => {
   const [termino, setTermino] = useState('');
   const [abierto, setAbierto] = useState(false);
@@ -79,8 +82,12 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{value.nombre}</p>
           <p className="text-xs text-muted-foreground">
-            {value.sku ? `SKU ${value.sku} · ` : ''}
-            Stock {value.stockActual} {value.unidadMedida} · {formatCurrency(value.precioVenta)}
+            {detalleSeleccion ?? (
+              <>
+                {value.sku ? `SKU ${value.sku} · ` : ''}
+                Stock {value.stockActual} {value.unidadMedida} · {formatCurrency(value.precioVenta)}
+              </>
+            )}
           </p>
         </div>
         <Button
