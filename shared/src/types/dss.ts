@@ -45,6 +45,42 @@ export interface ResultadoRecalculoAbc {
 }
 
 // ==========================================
+// Motor EOQ, ROP y alertas de reabastecimiento (Sprint 4 — LIB-33 a LIB-36)
+// ==========================================
+
+export interface AlertaReabastecimiento {
+  productoId: string;
+  sku: string | null;
+  nombre: string;
+  categoriaAbc: CategoriaAbc;
+  stockActual: number;
+  enTransito: number;
+  posicionInventario: number;
+  ropCalculado: number;
+  stockSeguridad: number;
+  eoqSugerido: number;
+  deficit: number; // unidades bajo el ROP (rop - posición de inventario, >= 0)
+}
+
+export interface CriticidadAlertas {
+  categoria: CategoriaAbc;
+  cantidad: number;
+}
+
+export interface PanelAlertas {
+  totalAlertas: number;
+  porCriticidad: CriticidadAlertas[];
+  alertas: AlertaReabastecimiento[];
+}
+
+export interface ResultadoRecalculoEoqRop {
+  jobId: string;
+  productosProcesados: number;
+  productosConParametrosCuantitativos: number;
+  fechaCalculo: string;
+}
+
+// ==========================================
 // Ingesta asistida por IA con validación humana (Sprint 3 — LIB-32)
 // ==========================================
 

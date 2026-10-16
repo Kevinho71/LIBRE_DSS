@@ -5,6 +5,7 @@ export const ROUTES = {
   ingreso: '/transacciones/ingreso',
   ajuste: '/transacciones/ajuste',
   abc: '/abc',
+  alertas: '/alertas',
   ingesta: '/ingesta',
   login: '/login',
   register: '/register',

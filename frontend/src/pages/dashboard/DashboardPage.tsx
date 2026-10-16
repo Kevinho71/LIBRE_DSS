@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { AlertasResumenCard } from '@/components/dss/AlertasResumenCard';
 import { Building2, Package, Sparkles, TrendingUp, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -105,6 +106,9 @@ export const DashboardPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Alertas de reabastecimiento (HU-22) */}
+      <AlertasResumenCard />
 
       {/* Guía Rápida para el Usuario */}
       <Card>
