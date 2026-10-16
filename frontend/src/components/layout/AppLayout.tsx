@@ -23,6 +23,7 @@ import {
   ShoppingCart,
   PackagePlus,
   FileScan,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface NavItem {
@@ -78,6 +79,12 @@ export const AppLayout: React.FC = () => {
       href: ROUTES.alertas,
       icon: BellRing,
       active: location.pathname === ROUTES.alertas,
+    },
+    {
+      name: 'Políticas P/Q',
+      href: ROUTES.sistemas,
+      icon: SlidersHorizontal,
+      active: location.pathname === ROUTES.sistemas,
     },
   ];
 

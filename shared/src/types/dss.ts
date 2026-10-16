@@ -1,4 +1,4 @@
-import { CategoriaAbc } from './entities';
+import { CategoriaAbc, PoliticaRevision } from './entities';
 
 // ==========================================
 // Clasificación ABC (Sprint 3 — LIB-29 / LIB-30)
@@ -121,4 +121,63 @@ export interface ResultadoConfirmacion {
   estado: 'confirmada';
   transaccionesCreadas: number;
   yaConfirmada: boolean;
+}
+
+// ==========================================
+// Sistemas P/Q y arranque en frío (Sprint 5 — LIB-37 a LIB-41)
+// ==========================================
+
+/** Fase del ciclo de vida del SKU: 1 (Min/Max), 2 (recopilación), 3 (activo). */
+export type FaseArranque = 1 | 2 | 3;
+
+export type TipoAlertaMinMax = 'bajo_minimo' | 'sobre_maximo';
+
+export interface ItemSistema {
+  productoId: string;
+  sku: string | null;
+  nombre: string;
+  categoriaAbc: CategoriaAbc;
+  politica: PoliticaRevision;
+  faseArranque: FaseArranque;
+  cuantitativoHabilitado: boolean;
+  diasHistorial: number;
+  diasConVenta: number;
+  eoqCalculado: number | null;
+  ropCalculado: number | null;
+  stockSeguridadCalculado: number | null;
+  intervaloRevisionDias: number | null;
+  nivelObjetivoT: number | null;
+  stockMinimoManual: number | null;
+  stockMaximoManual: number | null;
+}
+
+export interface ListadoSistemas {
+  totalProductos: number;
+  items: ItemSistema[];
+}
+
+export interface ResultadoAsignacionSistemas {
+  jobId: string;
+  totalProductos: number;
+  productosQ: number;
+  productosP: number;
+  enFase3: number;
+  fechaCalculo: string;
+}
+
+export interface AlertaMinMax {
+  productoId: string;
+  sku: string | null;
+  nombre: string;
+  faseArranque: FaseArranque;
+  tipo: TipoAlertaMinMax;
+  stockActual: number;
+  stockMinimoManual: number | null;
+  stockMaximoManual: number | null;
+  cantidadSugerida: number;
+}
+
+export interface PanelAlertasMinMax {
+  totalAlertas: number;
+  alertas: AlertaMinMax[];
 }

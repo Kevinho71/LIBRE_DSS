@@ -71,6 +71,12 @@ export interface FiltrosProductos {
   soloAlertas?: boolean;
 }
 
+/** Umbrales Min/Max manuales para productos en arranque en frío (HU-38). */
+export interface ParametrosMinMaxDTO {
+  stockMinimoManual: number | null;
+  stockMaximoManual: number | null;
+}
+
 export interface ProveedorDto {
   id: string;
   empresaId: string;
