@@ -88,15 +88,10 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
 
   // 3. Autenticación (/auth/*)
   if (resource === 'auth') {
-    const authRoutes = new Map<string, (e: LambdaEvent) => Promise<LambdaResponse>>([
-      ['POST:register', registerHandler],
-      ['POST:login', loginHandler],
-      ['GET:me', meHandler],
-    ]);
-    const routeHandler = authRoutes.get(`${method}:${segments[1]}`);
-    if (routeHandler) {
-      return routeHandler(event);
-    }
+    const action = segments[1];
+    if (method === 'POST' && action === 'register') return registerHandler(event);
+    if (method === 'POST' && action === 'login') return loginHandler(event);
+    if (method === 'GET' && action === 'me') return meHandler(event);
   }
 
   // 4. Productos (/productos/*)
