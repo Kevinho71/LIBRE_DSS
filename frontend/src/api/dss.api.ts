@@ -1,5 +1,6 @@
 import { client } from './client';
 import type {
+  ExplicacionAlertaResponse,
   ListadoSistemas,
   PanelAlertas,
   PanelAlertasMinMax,
@@ -35,5 +36,9 @@ export const dssApi = {
 
   /** Alertas por umbral Min/Max de productos en arranque en frío (HU-38). */
   obtenerAlertasMinMax: () => client.get<PanelAlertasMinMax>('/dss/alertas-min-max'),
+
+  /** Explicación en lenguaje natural de una alerta de reabastecimiento (HU-34). */
+  explicarAlerta: (productoId: string) =>
+    client.post<ExplicacionAlertaResponse>('/dss/explicar-alerta', { productoId }),
 };
 

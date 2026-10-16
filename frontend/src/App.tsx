@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PublicRoute } from '@/components/auth/PublicRoute';
+import { AdminRoute } from '@/components/auth/AdminRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
@@ -20,6 +21,8 @@ import { AbcPage } from '@/pages/abc/AbcPage';
 import { AlertasPage } from '@/pages/alertas/AlertasPage';
 import { SistemasPage } from '@/pages/dss/SistemasPage';
 import { ReceiptReviewPage } from '@/pages/ingesta/ReceiptReviewPage';
+import { ReporteCostosPage } from '@/pages/reportes/ReporteCostosPage';
+import { UsuariosPage } from '@/pages/usuarios/UsuariosPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 const queryClient = new QueryClient({
@@ -80,6 +83,15 @@ export function App() {
               <Route path="abc" element={<AbcPage />} />
               <Route path="alertas" element={<AlertasPage />} />
               <Route path="sistemas" element={<SistemasPage />} />
+              <Route path="reportes/costos" element={<ReporteCostosPage />} />
+              <Route
+                path="usuarios"
+                element={
+                  <AdminRoute>
+                    <UsuariosPage />
+                  </AdminRoute>
+                }
+              />
               <Route path="ingesta" element={<ReceiptReviewPage />} />
             </Route>
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dssApi } from '@/api/dss.api';
-import type { PanelAlertas, ResultadoRecalculoEoqRop } from '@libredss/shared';
+import type { ExplicacionAlertaResponse, PanelAlertas, ResultadoRecalculoEoqRop } from '@libredss/shared';
 
 const ALERTAS_STALE_TIME = 30_000;
 
@@ -24,5 +24,12 @@ export function useRecalcularEoqRop() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ALERTAS_QUERY_KEY });
     },
+  });
+}
+
+/** Explicación en lenguaje natural de una alerta de reabastecimiento (HU-34). */
+export function useExplicarAlerta() {
+  return useMutation<ExplicacionAlertaResponse, unknown, string>({
+    mutationFn: (productoId) => dssApi.explicarAlerta(productoId),
   });
 }

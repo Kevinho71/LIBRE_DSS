@@ -9,6 +9,8 @@ export const ROUTES = {
   abc: '/abc',
   alertas: '/alertas',
   sistemas: '/sistemas',
+  reportesCostos: '/reportes/costos',
+  usuarios: '/usuarios',
   ingesta: '/ingesta',
   login: '/login',
   register: '/register',
