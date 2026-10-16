@@ -1,20 +1,33 @@
 {
   "short_name": "LIBREDSS",
   "name": "LIBREDSS - Decision Support System",
-  "icons": [
-    {
-      "src": "/icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "/icon-512.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
-  ],
+  "description": "Sistema de Soporte a Decisiones de Inventario para MyPEs bolivianas.",
+  "lang": "es",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#0284c7",
-  "display": "standalone"
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Nueva venta", "url": "/transacciones/venta" },
+    { "name": "Kardex", "url": "/transacciones" },
+    { "name": "Ingreso de mercadería", "url": "/transacciones/ingreso" }
+  ]
 }
