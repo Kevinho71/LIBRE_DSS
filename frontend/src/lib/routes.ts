@@ -8,6 +8,7 @@ export const ROUTES = {
   ajuste: '/transacciones/ajuste',
   abc: '/abc',
   alertas: '/alertas',
+  sistemas: '/sistemas',
   ingesta: '/ingesta',
   login: '/login',
   register: '/register',

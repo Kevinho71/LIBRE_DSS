@@ -45,6 +45,10 @@ export const productosApi = {
 
   actualizar: (id: string, dto: ProductoInputDTO) => client.put<ProductoDto>(`/productos/${id}`, dto),
 
+  /** Actualización parcial (p. ej. umbrales Min/Max manuales) (HU-38). */
+  actualizarParametros: (id: string, dto: Partial<ProductoInputDTO>) =>
+    client.put<ProductoDto>(`/productos/${id}`, dto),
+
   desactivar: (id: string) => client.delete<void>(`/productos/${id}`),
 
   importarCsv: (contenido: string) =>

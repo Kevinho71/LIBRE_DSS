@@ -18,6 +18,7 @@ import { IngresoPage } from '@/pages/transacciones/IngresoPage';
 import { AjustePage } from '@/pages/transacciones/AjustePage';
 import { AbcPage } from '@/pages/abc/AbcPage';
 import { AlertasPage } from '@/pages/alertas/AlertasPage';
+import { SistemasPage } from '@/pages/dss/SistemasPage';
 import { ReceiptReviewPage } from '@/pages/ingesta/ReceiptReviewPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
@@ -78,6 +79,7 @@ export function App() {
               <Route path="transacciones/ajuste" element={<AjustePage />} />
               <Route path="abc" element={<AbcPage />} />
               <Route path="alertas" element={<AlertasPage />} />
+              <Route path="sistemas" element={<SistemasPage />} />
               <Route path="ingesta" element={<ReceiptReviewPage />} />
             </Route>
 
