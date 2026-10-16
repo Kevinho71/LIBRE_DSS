@@ -6,6 +6,8 @@ export const empresas = pgTable('empresa', {
   nombre: varchar('nombre', { length: 255 }).notNull(),
   nit: varchar('nit', { length: 50 }),
   plan: varchar('plan', { length: 20 }).default('gratuito').notNull(), // 'gratuito' (máx 15 SKUs) | 'pago'
+  // Tope de capital de trabajo por pedido (Bs). 0 desactiva el tope (ej. PACHIPLAC pide en camiones completos).
+  topeCapitalPedido: numeric('tope_capital_pedido', { precision: 12, scale: 2 }).default('15000.00').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

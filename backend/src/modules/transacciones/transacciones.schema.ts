@@ -62,6 +62,16 @@ export const registrarDevolucionSchema = z.object({
   llaveIdempotencia: z.string().max(64).optional(),
 });
 
+export const registrarVentaPerdidaSchema = z.object({
+  productoId: z.string().uuid('productoId debe ser un UUID válido'),
+  cantidad: z.number().positive('La cantidad perdida debe ser mayor a 0'),
+  costoUnitarioHistorico: z.number().nonnegative('El costo histórico no puede ser negativo').optional(),
+  precioVentaHistorico: z.number().nonnegative('El precio de venta histórico no puede ser negativo').optional(),
+  motivo: z.string().max(255).optional(),
+  fechaEvento: z.string().regex(dateRegex, 'fechaEvento debe tener formato YYYY-MM-DD').optional(),
+  llaveIdempotencia: z.string().max(64).optional(),
+});
+
 export const actualizarEstadoPagoSchema = z.object({
   estadoPago: z.enum(['contado', 'credito_pendiente', 'credito_pagado']),
 });

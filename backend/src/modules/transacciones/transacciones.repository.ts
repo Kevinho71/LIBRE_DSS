@@ -7,11 +7,13 @@ import {
   RegistrarIngresoDto,
   RegistrarAjusteDto,
   RegistrarDevolucionDto,
+  RegistrarVentaPerdidaDto,
   FiltroTransaccionesDto,
   TransaccionItemResponse,
   EstadoPago,
 } from './transacciones.types';
 import { NotFoundError, BadRequestError } from '../../shared/errors/AppError';
+import { clock } from '../../shared/utils/clock';
 import crypto from 'crypto';
 
 export const transaccionesRepository = {
@@ -114,7 +116,7 @@ export const transaccionesRepository = {
       }
 
       const nuevoStock = Number((stockActualNum - data.cantidad).toFixed(2));
-      const fechaEvento = data.fechaEvento || new Date().toISOString().slice(0, 10);
+      const fechaEvento = data.fechaEvento || clock.today();
       const precioVentaHistorico = data.precioVenta !== undefined ? data.precioVenta : Number(prod.precioVenta);
       const costoUnitarioHistorico = data.costoUnitario !== undefined ? data.costoUnitario : Number(prod.costoUnitario);
 
@@ -141,6 +143,7 @@ export const transaccionesRepository = {
           estadoPago: data.estadoPago ?? 'contado',
           llaveIdempotencia: data.llaveIdempotencia ?? null,
           fechaEvento,
+          fechaRegistro: clock.now(),
         })
         .returning();
 
@@ -154,7 +157,7 @@ export const transaccionesRepository = {
   ): Promise<{ notaId: string; transacciones: typeof transacciones.$inferSelect[] }> {
     return db.transaction(async (tx) => {
       const notaId = data.notaId || crypto.randomUUID();
-      const fechaEvento = data.fechaEvento || new Date().toISOString().slice(0, 10);
+      const fechaEvento = data.fechaEvento || clock.today();
       const productoIds = data.items.map(i => i.productoId);
 
       // 1. Obtener todos los productos involucrados
@@ -219,6 +222,7 @@ export const transaccionesRepository = {
             estadoPago: data.estadoPago ?? 'contado',
             llaveIdempotencia: data.llaveIdempotencia ? `${data.llaveIdempotencia}_${item.productoId}` : null,
             fechaEvento,
+            fechaRegistro: clock.now(),
           })
           .returning();
 
@@ -253,7 +257,7 @@ export const transaccionesRepository = {
       const cantidadEfectiva = data.esUnidadCompra ? Number((data.cantidad * factorConversion).toFixed(2)) : data.cantidad;
       const stockActualNum = Number(prod.stockActual);
       const nuevoStock = Number((stockActualNum + cantidadEfectiva).toFixed(2));
-      const fechaEvento = data.fechaEvento || new Date().toISOString().slice(0, 10);
+      const fechaEvento = data.fechaEvento || clock.today();
 
       const costoHistorico = data.costoUnitarioIngreso !== undefined
         ? data.costoUnitarioIngreso
@@ -297,6 +301,7 @@ export const transaccionesRepository = {
           estadoPago: 'contado',
           llaveIdempotencia: data.llaveIdempotencia ?? null,
           fechaEvento,
+          fechaRegistro: clock.now(),
         })
         .returning();
 
@@ -359,7 +364,7 @@ export const transaccionesRepository = {
         })
         .where(eq(productos.id, prod.id));
 
-      const fechaEvento = data.fechaEvento || new Date().toISOString().slice(0, 10);
+      const fechaEvento = data.fechaEvento || clock.today();
       const [trx] = await tx
         .insert(transacciones)
         .values({
@@ -372,6 +377,7 @@ export const transaccionesRepository = {
           estadoPago: 'contado',
           llaveIdempotencia: data.llaveIdempotencia ?? null,
           fechaEvento,
+          fechaRegistro: clock.now(),
         })
         .returning();
 
@@ -420,7 +426,7 @@ export const transaccionesRepository = {
         })
         .where(eq(productos.id, prod.id));
 
-      const fechaEvento = data.fechaEvento || new Date().toISOString().slice(0, 10);
+      const fechaEvento = data.fechaEvento || clock.today();
       const [trx] = await tx
         .insert(transacciones)
         .values({
@@ -434,10 +440,65 @@ export const transaccionesRepository = {
           estadoPago: 'contado',
           llaveIdempotencia: data.llaveIdempotencia ?? null,
           fechaEvento,
+          fechaRegistro: clock.now(),
         })
         .returning();
 
       return { transaccion: trx, nuevoStock };
+    });
+  },
+
+  /**
+   * Venta perdida por quiebre de stock (Plan de Simulación §4.2).
+   * NO descuenta stock: el cliente se fue sin llevarse mercadería. Solo registra el evento
+   * (con el costo y precio histórico del momento) para poder estimar el margen perdido.
+   */
+  async registrarVentaPerdida(
+    empresaId: string,
+    data: RegistrarVentaPerdidaDto
+  ): Promise<typeof transacciones.$inferSelect> {
+    return db.transaction(async (tx) => {
+      const [prod] = await tx
+        .select()
+        .from(productos)
+        .where(and(
+          eq(productos.empresaId, empresaId),
+          eq(productos.id, data.productoId),
+          isNull(productos.deletedAt)
+        ))
+        .limit(1);
+
+      if (!prod) {
+        throw new NotFoundError('PRODUCTO_NO_ENCONTRADO', `El producto con ID '${data.productoId}' no existe`);
+      }
+
+      const fechaEvento = data.fechaEvento || clock.today();
+      const costoUnitarioHistorico = data.costoUnitarioHistorico !== undefined
+        ? data.costoUnitarioHistorico
+        : Number(prod.costoUnitario);
+      const precioVentaHistorico = data.precioVentaHistorico !== undefined
+        ? data.precioVentaHistorico
+        : Number(prod.precioVenta);
+
+      // Sin descuento de stock: solo se persiste el evento de demanda insatisfecha.
+      const [trx] = await tx
+        .insert(transacciones)
+        .values({
+          empresaId,
+          productoId: prod.id,
+          tipo: 'venta_perdida',
+          cantidad: String(data.cantidad),
+          costoUnitarioHistorico: String(costoUnitarioHistorico),
+          precioVentaHistorico: String(precioVentaHistorico),
+          motivo: data.motivo ?? 'Quiebre de stock',
+          estadoPago: 'contado',
+          llaveIdempotencia: data.llaveIdempotencia ?? null,
+          fechaEvento,
+          fechaRegistro: clock.now(),
+        })
+        .returning();
+
+      return trx;
     });
   },
 

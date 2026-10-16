@@ -10,6 +10,7 @@ import {
   registrarIngresoSchema,
   registrarAjusteSchema,
   registrarDevolucionSchema,
+  registrarVentaPerdidaSchema,
 } from './transacciones.schema';
 
 describe('Transacciones Service & Schema Unit Tests (Sprint 2 / LIB-3)', () => {
@@ -86,6 +87,23 @@ describe('Transacciones Service & Schema Unit Tests (Sprint 2 / LIB-3)', () => {
         productoId,
         cantidad: 10,
         esUnidadCompra: true,
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('debe rechazar venta perdida con cantidad no positiva', () => {
+      const res = registrarVentaPerdidaSchema.safeParse({
+        productoId,
+        cantidad: 0,
+      });
+      expect(res.success).toBe(false);
+    });
+
+    it('debe validar venta perdida con datos mínimos', () => {
+      const res = registrarVentaPerdidaSchema.safeParse({
+        productoId,
+        cantidad: 4,
+        motivo: 'Quiebre de stock',
       });
       expect(res.success).toBe(true);
     });
@@ -338,6 +356,67 @@ describe('Transacciones Service & Schema Unit Tests (Sprint 2 / LIB-3)', () => {
       expect(res.idempotente).toBe(false);
       expect(res.nuevoStock).toBe(12);
       expect(res.transaccion.tipo).toBe('devolucion_cliente');
+    });
+  });
+
+  describe('Venta perdida por quiebre (Plan de Simulación §4.2)', () => {
+    it('registra la venta perdida sin descontar stock', async () => {
+      vi.spyOn(transaccionesRepository, 'findByIdempotencia').mockResolvedValue([]);
+      const registrar = vi.spyOn(transaccionesRepository, 'registrarVentaPerdida').mockResolvedValue({
+        id: 'trx-perdida-1',
+        empresaId,
+        productoId,
+        notaId: null,
+        tipo: 'venta_perdida',
+        cantidad: '4.00',
+        costoUnitarioHistorico: '10.00',
+        precioVentaHistorico: '25.00',
+        motivo: 'Quiebre de stock',
+        estadoPago: 'contado',
+        llaveIdempotencia: null,
+        fechaEvento: '2026-10-12',
+        fechaRegistro: new Date(),
+      });
+
+      const res = await transaccionesService.registrarVentaPerdida(empresaId, {
+        productoId,
+        cantidad: 4,
+      });
+
+      expect(res.idempotente).toBe(false);
+      expect(res.transaccion.tipo).toBe('venta_perdida');
+      expect(registrar).toHaveBeenCalledTimes(1);
+    });
+
+    it('no duplica la venta perdida si se repite la llave de idempotencia', async () => {
+      const existente = {
+        id: 'trx-perdida-previa',
+        empresaId,
+        productoId,
+        notaId: null,
+        tipo: 'venta_perdida',
+        cantidad: '4.00',
+        costoUnitarioHistorico: '10.00',
+        precioVentaHistorico: '25.00',
+        motivo: 'Quiebre de stock',
+        estadoPago: 'contado',
+        llaveIdempotencia: 'perd-repetida',
+        fechaEvento: '2026-10-12',
+        fechaRegistro: new Date(),
+      };
+
+      vi.spyOn(transaccionesRepository, 'findByIdempotencia').mockResolvedValue([existente]);
+      const registrar = vi.spyOn(transaccionesRepository, 'registrarVentaPerdida');
+
+      const res = await transaccionesService.registrarVentaPerdida(empresaId, {
+        productoId,
+        cantidad: 4,
+        llaveIdempotencia: 'perd-repetida',
+      });
+
+      expect(res.idempotente).toBe(true);
+      expect(res.transaccion.id).toBe('trx-perdida-previa');
+      expect(registrar).not.toHaveBeenCalled();
     });
   });
 

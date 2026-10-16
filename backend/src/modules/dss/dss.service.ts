@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { dssRepository, FilaAsignacionSistema } from './dss.repository';
 import { clasificarAbc, round2, CategoriaAbc } from '../../engine/abcService';
-import { calcularEoq, TOPE_CAPITAL_PEDIDO_DEFAULT } from '../../engine/eoqService';
+import { calcularEoq } from '../../engine/eoqService';
 import { calcularRop } from '../../engine/ropService';
 import { calcularPosicionInventario, evaluarReorden } from '../../engine/inventoryPosition';
 import { asignarPolitica, calcularSistemaP } from '../../engine/periodicService';
@@ -10,13 +10,14 @@ import { consolidarPedidoProveedor } from '../../engine/consolidacion';
 import { generarExplicacionBase } from '../../engine/explicador';
 import { enriquecerExplicacionConIA } from './dss.explicador';
 import { NotFoundError } from '../../shared/errors/AppError';
+import { clock } from '../../shared/utils/clock';
 import { env } from '../../shared/utils/env';
 import {
   ejecutarRetrospectiva,
   ParametrosSerieRetrospectiva,
   ResultadoRetrospectiva,
 } from '../../engine/retrospective';
-import { RetrospectivaInput } from './dss.schema';
+import { RetrospectivaInput, ConfiguracionDssInput } from './dss.schema';
 import { logger } from '../../shared/utils/logger';
 import {
   ResumenAbc,
@@ -127,7 +128,7 @@ export const dssService = {
       jobId,
       totalProductos: resultados.length,
       valorConsumoTotal,
-      fechaCalculo: new Date().toISOString(),
+      fechaCalculo: clock.now().toISOString(),
     };
   },
 
@@ -200,6 +201,9 @@ export const dssService = {
 
   async recalcularEoqRop(empresaId: string, jobId: string = crypto.randomUUID()): Promise<ResultadoRecalculoEoqRop> {
     const filas = await dssRepository.obtenerParametrosLogisticos(empresaId);
+    // Tope de capital por pedido configurado por empresa (0 = sin tope).
+    const topeCapitalConfig = await dssRepository.obtenerTopeCapitalPedido(empresaId);
+    const topeCapitalPedido = topeCapitalConfig > 0 ? topeCapitalConfig : undefined;
 
     const calculadas = filas
       .filter((f) => f.categoriaAbc !== null)
@@ -213,7 +217,7 @@ export const dssService = {
           costoUnitario: f.costoUnitario,
           tasaMantenimiento: f.tasaMantenimientoAnual,
           loteMinimo: f.loteMinimo,
-          topeCapitalPedido: TOPE_CAPITAL_PEDIDO_DEFAULT,
+          topeCapitalPedido,
         });
 
         // Solo se calcula ROP/SS cuando existe demanda diaria positiva; sin demanda no hay
@@ -245,7 +249,7 @@ export const dssService = {
       jobId,
       productosProcesados: calculadas.length,
       productosConParametrosCuantitativos: conParametros,
-      fechaCalculo: new Date().toISOString(),
+      fechaCalculo: clock.now().toISOString(),
     };
   },
 
@@ -344,7 +348,7 @@ export const dssService = {
       productosQ,
       productosP,
       enFase3,
-      fechaCalculo: new Date().toISOString(),
+      fechaCalculo: clock.now().toISOString(),
     };
   },
 
@@ -430,12 +434,15 @@ export const dssService = {
     const demandaPromedioDiaria = dias > 0 ? demandaTotal / dias : 0;
     const demandaAnual = demandaPromedioDiaria * DIAS_ANIO;
 
+    const topeCapitalConfig = await dssRepository.obtenerTopeCapitalPedido(empresaId);
+    const topeCapitalPedido = topeCapitalConfig > 0 ? topeCapitalConfig : undefined;
+
     const eoq = calcularEoq({
       demandaAnual,
       costoPedido: input.costoPedido,
       costoUnitario: input.costoUnitario,
       tasaMantenimiento: input.tasaMantenimientoAnual,
-      topeCapitalPedido: TOPE_CAPITAL_PEDIDO_DEFAULT,
+      topeCapitalPedido,
     });
 
     const rop = calcularRop({
@@ -471,6 +478,36 @@ export const dssService = {
     });
 
     return resultado;
+  },
+
+  async obtenerConfiguracion(empresaId: string): Promise<{ topeCapitalPedido: number }> {
+    const topeCapitalPedido = await dssRepository.obtenerTopeCapitalPedido(empresaId);
+    return { topeCapitalPedido };
+  },
+
+  async actualizarConfiguracion(
+    empresaId: string,
+    dto: ConfiguracionDssInput
+  ): Promise<{ topeCapitalPedido: number }> {
+    const topeCapitalPedido = await dssRepository.actualizarTopeCapitalPedido(empresaId, dto.topeCapitalPedido);
+    logger.info('Configuración DSS actualizada', { empresaId, topeCapitalPedido });
+    return { topeCapitalPedido };
+  },
+
+  /**
+   * Fija o limpia la fecha simulada del reloj inyectable (Plan de Simulación §4.1).
+   * `fecha = null` vuelve a la hora real del sistema.
+   */
+  async fijarRelojSimulado(fecha: string | null): Promise<{ fechaSimulada: string | null; simulado: boolean }> {
+    if (fecha === null) {
+      clock.clear();
+    } else {
+      clock.setSimulatedDate(fecha);
+    }
+
+    const fechaSimulada = clock.getSimulatedDate();
+    logger.info('Reloj de simulación actualizado', { empresaId: 'global', fechaSimulada });
+    return { fechaSimulada, simulado: clock.isSimulated() };
   },
 
   async obtenerSugerenciasProveedor(empresaId: string, proveedorId: string): Promise<SugerenciaProveedor> {

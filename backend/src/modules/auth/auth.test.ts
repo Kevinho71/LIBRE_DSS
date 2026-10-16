@@ -23,6 +23,7 @@ describe('Auth Service & Middleware Unit Tests', () => {
           nombre: 'Comercializadora Test SRL',
           nit: '12345678',
           plan: 'gratuito',
+          topeCapitalPedido: '15000.00',
           createdAt: new Date('2026-01-01T00:00:00Z'),
           updatedAt: new Date('2026-01-01T00:00:00Z'),
         },
@@ -103,6 +104,7 @@ describe('Auth Service & Middleware Unit Tests', () => {
         nombre: 'Distribuidora Gomez',
         nit: '87654321',
         plan: 'gratuito',
+        topeCapitalPedido: '15000.00',
         createdAt: new Date('2026-01-01T00:00:00Z'),
         updatedAt: new Date('2026-01-01T00:00:00Z'),
       });
@@ -171,6 +173,7 @@ describe('Auth Service & Middleware Unit Tests', () => {
         nombre: 'Mi Empresa',
         nit: null,
         plan: 'gratuito',
+        topeCapitalPedido: '15000.00',
         createdAt: new Date('2026-01-01T00:00:00Z'),
         updatedAt: new Date('2026-01-01T00:00:00Z'),
       });

@@ -22,6 +22,10 @@ const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_SESSION_TOKEN: z.string().optional(),
+  // Simulación determinística (Plan de Simulación §4.1). Fecha inicial del reloj inyectable.
+  DSS_SIM_FECHA: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'DSS_SIM_FECHA debe tener formato YYYY-MM-DD').optional(),
+  // Habilita el endpoint POST /dss/simular/reloj para avanzar la fecha en caliente.
+  DSS_HABILITAR_SIMULACION: z.enum(['true', 'false']).default('false'),
 });
 
 const parsed = envSchema.safeParse(process.env);

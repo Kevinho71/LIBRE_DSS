@@ -22,5 +22,18 @@ export const explicarAlertaSchema = z.object({
   productoId: z.string().uuid('productoId debe ser un UUID válido'),
 });
 
+export const relojSimuladoSchema = z.object({
+  fecha: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'fecha debe tener formato YYYY-MM-DD')
+    .nullable(),
+});
+
+export const configuracionDssSchema = z.object({
+  topeCapitalPedido: z.number().nonnegative('El tope de capital por pedido no puede ser negativo'),
+});
+
 export type RetrospectivaInput = z.infer<typeof retrospectivaSchema>;
 export type ExplicarAlertaInput = z.infer<typeof explicarAlertaSchema>;
+export type RelojSimuladoInput = z.infer<typeof relojSimuladoSchema>;
+export type ConfiguracionDssInput = z.infer<typeof configuracionDssSchema>;

@@ -23,6 +23,7 @@ import {
   registrarIngresoHandler,
   registrarAjusteHandler,
   registrarDevolucionHandler,
+  registrarVentaPerdidaHandler,
   listarTransaccionesHandler,
   obtenerTransaccionesPorNotaHandler,
   actualizarPagoHandler,
@@ -41,6 +42,9 @@ import {
   retrospectivaHandler,
   sugerenciasProveedorHandler,
   explicarAlertaHandler,
+  fijarRelojHandler,
+  obtenerConfiguracionHandler,
+  actualizarConfiguracionHandler,
 } from './modules/dss/dss.handler';
 import { extraerIngestaHandler, confirmarIngestaHandler } from './modules/ai/ai.handler';
 import { obtenerDashboardKpisHandler, obtenerReporteCostosHandler } from './modules/dashboard/dashboard.handler';
@@ -138,6 +142,7 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
       if (method === 'POST' && action === 'ingreso') return registrarIngresoHandler(event);
       if (method === 'POST' && action === 'ajuste') return registrarAjusteHandler(event);
       if (method === 'POST' && action === 'devolucion') return registrarDevolucionHandler(event);
+      if (method === 'POST' && action === 'venta-perdida') return registrarVentaPerdidaHandler(event);
     }
 
     if (segments.length === 3) {
@@ -203,6 +208,17 @@ async function router(event: LambdaEvent): Promise<LambdaResponse> {
     // POST /dss/explicar-alerta
     if (segments.length === 2 && segments[1] === 'explicar-alerta' && method === 'POST') {
       return explicarAlertaHandler(event);
+    }
+
+    // POST /dss/simular/reloj — control del reloj inyectable (solo en modo simulación)
+    if (segments.length === 3 && segments[1] === 'simular' && segments[2] === 'reloj' && method === 'POST') {
+      return fijarRelojHandler(event);
+    }
+
+    // GET/PUT /dss/configuracion — tope de capital por pedido configurable por empresa
+    if (segments.length === 2 && segments[1] === 'configuracion') {
+      if (method === 'GET') return obtenerConfiguracionHandler(event);
+      if (method === 'PUT') return actualizarConfiguracionHandler(event);
     }
   }
 

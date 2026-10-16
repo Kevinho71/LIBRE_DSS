@@ -5,6 +5,9 @@ import { CategoriaAbc } from '../../engine/abcService';
 import { FaseArranque } from '../../engine/coldStartService';
 import { PoliticaInventario } from '../../engine/periodicService';
 import { PosicionProductoConsolidacion } from '../../engine/consolidacion';
+import { TOPE_CAPITAL_PEDIDO_DEFAULT } from '../../engine/eoqService';
+import { clock } from '../../shared/utils/clock';
+import { NotFoundError } from '../../shared/errors/AppError';
 
 export interface DemandaProducto {
   productoId: string;
@@ -117,6 +120,34 @@ export const dssRepository = {
   async listarEmpresas(): Promise<string[]> {
     const rows = await db.select({ id: empresas.id }).from(empresas);
     return rows.map((r) => r.id);
+  },
+
+  /**
+   * Tope de capital de trabajo por pedido configurado para la empresa (Plan de Simulación §4.3).
+   * Un valor 0 (o menor) desactiva la restricción de capital.
+   */
+  async obtenerTopeCapitalPedido(empresaId: string): Promise<number> {
+    const rows = await db
+      .select({ tope: empresas.topeCapitalPedido })
+      .from(empresas)
+      .where(eq(empresas.id, empresaId))
+      .limit(1);
+
+    const valor = rows[0]?.tope;
+    return valor != null ? Number(valor) : TOPE_CAPITAL_PEDIDO_DEFAULT;
+  },
+
+  async actualizarTopeCapitalPedido(empresaId: string, topeCapitalPedido: number): Promise<number> {
+    const [row] = await db
+      .update(empresas)
+      .set({ topeCapitalPedido: String(topeCapitalPedido), updatedAt: clock.now() })
+      .where(eq(empresas.id, empresaId))
+      .returning({ topeCapitalPedido: empresas.topeCapitalPedido });
+
+    if (!row) {
+      throw new NotFoundError('EMPRESA_NO_ENCONTRADA', `La empresa '${empresaId}' no existe`);
+    }
+    return Number(row.topeCapitalPedido);
   },
 
   async obtenerVentana(empresaId: string): Promise<number | null> {
@@ -284,7 +315,7 @@ export const dssRepository = {
           ropCalculado: f.rop != null ? String(f.rop) : null,
           stockSeguridadCalculado: f.ss != null ? String(f.ss) : null,
           jobId,
-          fechaCalculo: new Date(),
+          fechaCalculo: clock.now(),
         })
         .where(
           and(
@@ -439,7 +470,7 @@ export const dssRepository = {
           ropCalculado: f.ropCalculado != null ? String(f.ropCalculado) : null,
           stockSeguridadCalculado: f.stockSeguridadCalculado != null ? String(f.stockSeguridadCalculado) : null,
           jobId,
-          fechaCalculo: new Date(),
+          fechaCalculo: clock.now(),
         })
         .where(
           and(

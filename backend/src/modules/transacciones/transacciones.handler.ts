@@ -5,6 +5,7 @@ import {
   registrarIngresoSchema,
   registrarAjusteSchema,
   registrarDevolucionSchema,
+  registrarVentaPerdidaSchema,
   actualizarEstadoPagoSchema,
   filtroTransaccionesSchema,
 } from './transacciones.schema';
@@ -48,6 +49,14 @@ export async function registrarDevolucionHandler(event: LambdaEvent): Promise<La
   const rawBody = parseBody(event.body, event.isBase64Encoded);
   const dto = registrarDevolucionSchema.parse(rawBody);
   const result = await transaccionesService.registrarDevolucion(empresaId, dto);
+  return created(result);
+}
+
+export async function registrarVentaPerdidaHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const rawBody = parseBody(event.body, event.isBase64Encoded);
+  const dto = registrarVentaPerdidaSchema.parse(rawBody);
+  const result = await transaccionesService.registrarVentaPerdida(empresaId, dto);
   return created(result);
 }
 

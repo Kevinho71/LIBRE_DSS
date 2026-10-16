@@ -1,14 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
 import { dssService } from './dss.service';
 import { dssRepository } from './dss.repository';
 import { FilaLogistica, FilaPosicionInventario } from './dss.repository';
+import { clock } from '../../shared/utils/clock';
 
 describe('DSS Service — EOQ/ROP y Alertas (Sprint 4 / LIB-5)', () => {
   const empresaId = crypto.randomUUID();
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Tope de capital por defecto (15.000 Bs) salvo que la prueba lo sobreescriba.
+    vi.spyOn(dssRepository, 'obtenerTopeCapitalPedido').mockResolvedValue(15000);
   });
 
   describe('recalcularEoqRop (HU-19, HU-20)', () => {
@@ -63,6 +66,52 @@ describe('DSS Service — EOQ/ROP y Alertas (Sprint 4 / LIB-5)', () => {
       expect(res.productosConParametrosCuantitativos).toBe(0);
       const filasPersistidas = actualizar.mock.calls[0][2];
       expect(filasPersistidas).toEqual([{ productoId: 'p2', eoq: 0, rop: null, ss: null }]);
+    });
+
+    it('desactiva el tope de capital cuando la empresa lo tiene en 0 (PACHIPLAC)', async () => {
+      const fila: FilaLogistica = {
+        productoId: 'p1',
+        categoriaAbc: 'A',
+        demandaPromedioDiaria: 6000 / 365,
+        demandaAnual: 6000,
+        costoUnitario: 65,
+        costoPedido: 50,
+        tasaMantenimientoAnual: 0.2,
+        leadTimeDias: 3,
+        loteMinimo: 1,
+        costoPedidoProveedor: 150,
+      };
+
+      vi.spyOn(dssRepository, 'obtenerTopeCapitalPedido').mockResolvedValue(0);
+      vi.spyOn(dssRepository, 'obtenerParametrosLogisticos').mockResolvedValue([fila]);
+      const actualizar = vi.spyOn(dssRepository, 'actualizarEoqRop').mockResolvedValue(undefined);
+
+      await dssService.recalcularEoqRop(empresaId);
+
+      const filasPersistidas = actualizar.mock.calls[0][2];
+      // Sin tope de capital: EOQ recomendado = round(372.10) = 372 (no acotado a 230).
+      expect(filasPersistidas[0].eoq).toBe(372);
+    });
+  });
+
+  describe('Configuración DSS — tope de capital por empresa (§4.3)', () => {
+    it('lee el tope de capital configurado para la empresa', async () => {
+      vi.spyOn(dssRepository, 'obtenerTopeCapitalPedido').mockResolvedValue(0);
+
+      const res = await dssService.obtenerConfiguracion(empresaId);
+
+      expect(res.topeCapitalPedido).toBe(0);
+    });
+
+    it('actualiza el tope de capital de la empresa y lo retorna', async () => {
+      const actualizar = vi
+        .spyOn(dssRepository, 'actualizarTopeCapitalPedido')
+        .mockResolvedValue(50000);
+
+      const res = await dssService.actualizarConfiguracion(empresaId, { topeCapitalPedido: 50000 });
+
+      expect(res.topeCapitalPedido).toBe(50000);
+      expect(actualizar).toHaveBeenCalledWith(empresaId, 50000);
     });
   });
 
@@ -128,6 +177,22 @@ describe('DSS Service — EOQ/ROP y Alertas (Sprint 4 / LIB-5)', () => {
 
       const res = await dssService.evaluarPosicionInventario(empresaId, 'p1');
       expect(res).toBeNull();
+    });
+  });
+
+  describe('Reloj inyectable (Plan de Simulación §4.1)', () => {
+    afterEach(() => {
+      clock.clear();
+    });
+
+    it('fija y limpia la fecha simulada del reloj', async () => {
+      const fijado = await dssService.fijarRelojSimulado('2026-05-15');
+      expect(fijado.simulado).toBe(true);
+      expect(fijado.fechaSimulada).toBe('2026-05-15');
+
+      const limpiado = await dssService.fijarRelojSimulado(null);
+      expect(limpiado.simulado).toBe(false);
+      expect(limpiado.fechaSimulada).toBeNull();
     });
   });
 });

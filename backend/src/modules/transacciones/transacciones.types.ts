@@ -47,6 +47,16 @@ export interface RegistrarIngresoDto {
   motivo?: string;
 }
 
+export interface RegistrarVentaPerdidaDto {
+  productoId: string;
+  cantidad: number;
+  costoUnitarioHistorico?: number; // Si no viene, se toma el costo actual del producto
+  precioVentaHistorico?: number; // Si no viene, se toma el precio de venta actual del producto
+  motivo?: string; // Por defecto "Quiebre de stock"
+  fechaEvento?: string;
+  llaveIdempotencia?: string;
+}
+
 export interface RegistrarAjusteDto {
   productoId: string;
   conteoFisico?: number; // Para arqueo / conteo físico (CB-06)

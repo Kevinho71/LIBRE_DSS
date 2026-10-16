@@ -5,6 +5,7 @@ import {
   RegistrarIngresoDto,
   RegistrarAjusteDto,
   RegistrarDevolucionDto,
+  RegistrarVentaPerdidaDto,
   FiltroTransaccionesDto,
   EstadoPago,
 } from './transacciones.types';
@@ -197,6 +198,41 @@ export const transaccionesService = {
       transaccion: resultado.transaccion,
       nuevoStock: resultado.nuevoStock,
       mensaje: 'Devolución registrada exitosamente',
+    };
+  },
+
+  /**
+   * Venta perdida por quiebre de stock (Plan de Simulación §4.2).
+   * No descuenta stock; solo deja constancia del evento para el análisis de margen perdido.
+   */
+  async registrarVentaPerdida(empresaId: string, data: RegistrarVentaPerdidaDto) {
+    if (data.llaveIdempotencia) {
+      const previas = await transaccionesRepository.findByIdempotencia(empresaId, data.llaveIdempotencia);
+      if (previas.length > 0) {
+        logger.info('Venta perdida duplicada detectada por idempotencia', {
+          empresaId,
+          llaveIdempotencia: data.llaveIdempotencia,
+        });
+        return {
+          idempotente: true,
+          transaccion: previas[0],
+          mensaje: 'Venta perdida ya procesada previamente (Idempotencia)',
+        };
+      }
+    }
+
+    const transaccion = await transaccionesRepository.registrarVentaPerdida(empresaId, data);
+    logger.info('Venta perdida registrada (no descuenta stock)', {
+      empresaId,
+      productoId: data.productoId,
+      cantidad: data.cantidad,
+      motivo: transaccion.motivo,
+    });
+
+    return {
+      idempotente: false,
+      transaccion,
+      mensaje: 'Venta perdida registrada exitosamente',
     };
   },
 

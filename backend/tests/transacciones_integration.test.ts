@@ -296,6 +296,35 @@ describe.runIf(isDatabaseConfigured)('Módulo Transaccional E2E (Sprint 2 / LIB-
     expect(JSON.parse(res.body).nuevoStock).toBe(112);
   });
 
+  it('debe registrar una venta perdida por quiebre sin descontar stock (Plan de Simulación §4.2)', async () => {
+    const event: LambdaEvent = {
+      rawPath: '/api/v1/transacciones/venta-perdida',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${authToken}` },
+      requestContext: { http: { method: 'POST', path: '/api/v1/transacciones/venta-perdida', sourceIp: '127.0.0.1', userAgent: 'vitest' } },
+      body: JSON.stringify({
+        productoId: producto2Id,
+        cantidad: 7,
+        motivo: 'Sin stock de tarugos',
+      }),
+    };
+
+    const res = await handler(event);
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.transaccion.tipo).toBe('venta_perdida');
+    expect(Number(body.transaccion.cantidad)).toBe(7);
+    expect(Number(body.transaccion.precioVentaHistorico)).toBe(8);
+    expect(Number(body.transaccion.costoUnitarioHistorico)).toBe(5);
+
+    // El stock del producto NO debe cambiar (seguía en 40 tras el batch).
+    const checkProd2: LambdaEvent = {
+      rawPath: `/api/v1/productos/${producto2Id}`,
+      headers: { authorization: `Bearer ${authToken}` },
+      requestContext: { http: { method: 'GET', path: `/api/v1/productos/${producto2Id}`, sourceIp: '127.0.0.1', userAgent: 'vitest' } },
+    };
+    expect(JSON.parse((await handler(checkProd2)).body).stockActual).toBe(40);
+  });
+
   it('debe actualizar el estado de pago de venta a crédito a credito_pagado (CB-07)', async () => {
     const event: LambdaEvent = {
       rawPath: `/api/v1/transacciones/${ventaCreditoId}/pago`,
