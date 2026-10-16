@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ROUTES } from '@/lib/routes';
 import {
   LayoutDashboard,
   Package,
@@ -16,6 +18,9 @@ import {
   X,
   ShieldCheck,
   ShieldAlert,
+  ClipboardList,
+  ShoppingCart,
+  PackagePlus,
 } from 'lucide-react';
 
 export const AppLayout: React.FC = () => {
@@ -24,10 +29,28 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, active: location.pathname === '/dashboard' },
+    { name: 'Dashboard', href: ROUTES.dashboard, icon: LayoutDashboard, active: location.pathname === ROUTES.dashboard },
+    {
+      name: 'Kardex / Historial',
+      href: ROUTES.transacciones,
+      icon: ClipboardList,
+      active: location.pathname === ROUTES.transacciones,
+    },
+    { name: 'Venta ágil', href: ROUTES.venta, icon: ShoppingCart, active: location.pathname === ROUTES.venta },
+    {
+      name: 'Ingreso de mercadería',
+      href: ROUTES.ingreso,
+      icon: PackagePlus,
+      active: location.pathname === ROUTES.ingreso,
+    },
+    {
+      name: 'Ajustes y devoluciones',
+      href: ROUTES.ajuste,
+      icon: ArrowLeftRight,
+      active: location.pathname === ROUTES.ajuste,
+    },
     { name: 'Catálogo (Fase 2)', href: '#', icon: Package, disabled: true },
     { name: 'Proveedores (Fase 2)', href: '#', icon: Truck, disabled: true },
-    { name: 'Transacciones (Fase 3)', href: '#', icon: ArrowLeftRight, disabled: true },
     { name: 'Motor ABC (Fase 4)', href: '#', icon: PieChart, disabled: true },
     { name: 'Alertas EOQ/ROP (Fase 5)', href: '#', icon: BellRing, disabled: true },
   ];
@@ -102,6 +125,8 @@ export const AppLayout: React.FC = () => {
           </div>
         </div>
       </header>
+
+      <OfflineBanner />
 
       <div className="flex flex-1">
         {/* Sidebar escritorio */}

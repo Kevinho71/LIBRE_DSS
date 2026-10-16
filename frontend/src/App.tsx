@@ -10,6 +10,10 @@ import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { TermsPage } from '@/pages/legal/TermsPage';
 import { PrivacyPage } from '@/pages/legal/PrivacyPage';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
+import { KardexPage } from '@/pages/transacciones/KardexPage';
+import { VentaPage } from '@/pages/transacciones/VentaPage';
+import { IngresoPage } from '@/pages/transacciones/IngresoPage';
+import { AjustePage } from '@/pages/transacciones/AjustePage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 const queryClient = new QueryClient({
@@ -61,6 +65,10 @@ export function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="transacciones" element={<KardexPage />} />
+              <Route path="transacciones/venta" element={<VentaPage />} />
+              <Route path="transacciones/ingreso" element={<IngresoPage />} />
+              <Route path="transacciones/ajuste" element={<AjustePage />} />
             </Route>
 
             {/* 404 No Encontrado */}
