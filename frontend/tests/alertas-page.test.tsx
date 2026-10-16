@@ -22,6 +22,7 @@ vi.mock('@/api/dss.api', () => ({
   dssApi: {
     obtenerAlertas: vi.fn(),
     recalcularEoqRop: vi.fn(),
+    explicarAlerta: vi.fn(),
   },
 }));
 
@@ -29,6 +30,7 @@ import { dssApi } from '@/api/dss.api';
 
 const mockAlertas = vi.mocked(dssApi.obtenerAlertas);
 const mockRecalcular = vi.mocked(dssApi.recalcularEoqRop);
+const mockExplicar = vi.mocked(dssApi.explicarAlerta);
 
 function renderAlertas() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -45,6 +47,7 @@ describe('AlertasPage (HU-21, HU-22)', () => {
   beforeEach(() => {
     mockAlertas.mockReset();
     mockRecalcular.mockReset();
+    mockExplicar.mockReset();
   });
 
   it('lista las alertas priorizadas con estado, dÃ©ficit y cantidad sugerida (EOQ)', async () => {
@@ -120,6 +123,43 @@ describe('AlertasPage (HU-21, HU-22)', () => {
     boton.click();
 
     await waitFor(() => expect(mockRecalcular).toHaveBeenCalledTimes(1));
+  });
+
+  it('muestra la explicación en lenguaje natural de una alerta (HU-34)', async () => {
+    mockAlertas.mockResolvedValue({
+      totalAlertas: 1,
+      porCriticidad: [{ categoria: 'A', cantidad: 1 }],
+      alertas: [
+        {
+          productoId: 'p1',
+          sku: 'SKU-1',
+          nombre: 'Cemento IP-30',
+          categoriaAbc: 'A',
+          stockActual: 5,
+          enTransito: 0,
+          posicionInventario: 5,
+          ropCalculado: 70.01,
+          stockSeguridad: 20.7,
+          eoqSugerido: 372.1,
+          deficit: 65.01,
+        },
+      ],
+    });
+    mockExplicar.mockResolvedValue({
+      productoId: 'p1',
+      sku: 'SKU-1',
+      nombre: 'Cemento IP-30',
+      explicacion: 'Repón el cemento porque su posición de inventario cayó bajo el punto de reorden.',
+      fuente: 'plantilla',
+    });
+
+    renderAlertas();
+
+    const boton = await screen.findByRole('button', { name: /explicar alerta de cemento ip-30/i });
+    boton.click();
+
+    expect(await screen.findByText(/cayó bajo el punto de reorden/i)).toBeInTheDocument();
+    expect(mockExplicar).toHaveBeenCalledWith('p1');
   });
 });
 

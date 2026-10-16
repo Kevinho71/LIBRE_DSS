@@ -1,18 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, BellRing, Loader2, RefreshCw, Truck } from 'lucide-react';
+import { AlertTriangle, BellRing, Loader2, RefreshCw, Sparkles, Truck } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ClaseAbcBadge } from '@/components/abc/ClaseAbcBadge';
 import { ReabastecimientoBadge } from '@/components/dss/ReabastecimientoBadge';
+import { ExplicacionDialog } from '@/components/dss/ExplicacionDialog';
 import { useAlertasReabastecimiento, useRecalcularEoqRop } from '@/hooks/useAlertas';
 import { useAuth } from '@/context/AuthContext';
 import { ApiError } from '@/api/client';
 import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
-import type { CategoriaAbc, CriticidadAlertas } from '@libredss/shared';
+import type { AlertaReabastecimiento, CategoriaAbc, CriticidadAlertas } from '@libredss/shared';
 
 const ORDEN_CLASES: CategoriaAbc[] = ['A', 'B', 'C'];
 
@@ -43,6 +44,7 @@ export const AlertasPage: React.FC = () => {
 
   const alertasQuery = useAlertasReabastecimiento();
   const recalcular = useRecalcularEoqRop();
+  const [explicando, setExplicando] = useState<AlertaReabastecimiento | null>(null);
 
   const panel = alertasQuery.data;
   const alertas = panel?.alertas ?? [];
@@ -149,6 +151,7 @@ export const AlertasPage: React.FC = () => {
                       <TableHead className="text-right">Stock seg.</TableHead>
                       <TableHead className="text-right">Déficit</TableHead>
                       <TableHead className="text-right">Cantidad sugerida (EOQ)</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -182,6 +185,18 @@ export const AlertasPage: React.FC = () => {
                         <TableCell className="text-right text-sm font-bold text-foreground">
                           {formatearCantidad(alerta.eoqSugerido)}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Explicar alerta de ${alerta.nombre}`}
+                            onClick={() => setExplicando(alerta)}
+                          >
+                            <Sparkles className="h-3.5 w-3.5 text-primary" />
+                            Explicar
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -191,6 +206,12 @@ export const AlertasPage: React.FC = () => {
           </Card>
         </>
       )}
+
+      <ExplicacionDialog
+        open={Boolean(explicando)}
+        onOpenChange={(open) => !open && setExplicando(null)}
+        alerta={explicando}
+      />
     </div>
   );
 };

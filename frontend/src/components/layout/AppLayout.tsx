@@ -24,6 +24,8 @@ import {
   PackagePlus,
   FileScan,
   SlidersHorizontal,
+  FileBarChart,
+  Users,
 } from 'lucide-react';
 
 interface NavItem {
@@ -86,6 +88,22 @@ export const AppLayout: React.FC = () => {
       icon: SlidersHorizontal,
       active: location.pathname === ROUTES.sistemas,
     },
+    {
+      name: 'Reporte de costos',
+      href: ROUTES.reportesCostos,
+      icon: FileBarChart,
+      active: location.pathname === ROUTES.reportesCostos,
+    },
+    ...(usuario?.rol === 'administrador'
+      ? [
+          {
+            name: 'Usuarios',
+            href: ROUTES.usuarios,
+            icon: Users,
+            active: location.pathname === ROUTES.usuarios,
+          },
+        ]
+      : []),
   ];
 
   return (

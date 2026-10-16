@@ -1,5 +1,4 @@
-import { Empresa, Usuario, Producto, Proveedor, Transaccion, OrdenCompra, ParametrosCalculo } from './entities';
-import { ResultadoAbc, ResultadoEoq, ResultadoRop } from './algorithms';
+import { Empresa, Usuario, Transaccion, RolUsuario } from './entities';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -49,6 +48,54 @@ export interface AppErrorResponse {
   error: string;
   message: string;
   details?: Record<string, string[] | string>;
+}
+
+// ==========================================
+// Dashboard ejecutivo (Sprint 6 — LIB-42)
+// ==========================================
+
+export interface MermasMes {
+  cantidad: number;
+  valorEstimado: number;
+}
+
+export interface DashboardKpis {
+  fecha: string;
+  plan: string;
+  limiteSku: number | null;
+  productosActivos: number;
+  valorInventario: number;
+  skusEnAlerta: number;
+  mermasMes: MermasMes;
+  ahorroEstimadoProyectado: number;
+}
+
+// ==========================================
+// Gestión de usuarios y roles (Sprint 6 — LIB-43)
+// ==========================================
+
+export interface UsuarioGestionDto {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: RolUsuario;
+  createdAt: string;
+}
+
+export interface ListadoUsuariosResponse {
+  items: UsuarioGestionDto[];
+  total: number;
+}
+
+export interface CrearUsuarioDTO {
+  nombre: string;
+  email: string;
+  password: string;
+  rol: RolUsuario;
+}
+
+export interface ActualizarRolDTO {
+  rol: RolUsuario;
 }
 
 export interface LoginResponse {

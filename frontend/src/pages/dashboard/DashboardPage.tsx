@@ -1,14 +1,36 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  BellRing,
+  Building2,
+  Loader2,
+  Package,
+  PiggyBank,
+  ShieldCheck,
+  TrendingDown,
+  Wallet,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { KpiCard } from '@/components/dashboard/KpiCard';
 import { AlertasResumenCard } from '@/components/dss/AlertasResumenCard';
+import { useDashboardKpis } from '@/hooks/useDashboard';
+import { formatCurrency } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
-import { Building2, Package, Sparkles, TrendingUp, ShieldCheck, ArrowUpRight } from 'lucide-react';
+
+// recharts es pesado: los gráficos se cargan en un chunk aparte solo al abrir el dashboard.
+const DashboardCharts = React.lazy(() => import('@/components/dashboard/DashboardCharts'));
 
 export const DashboardPage: React.FC = () => {
   const { usuario, empresa } = useAuth();
+  const { data: kpis, isLoading, isError } = useDashboardKpis();
+
+  const esFreemium = (kpis?.plan ?? empresa?.plan) === 'gratuito';
+  const limite = kpis?.limiteSku ?? (esFreemium ? 15 : null);
 
   return (
     <div className="space-y-6">
@@ -17,8 +39,8 @@ export const DashboardPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-primary">Plataforma DSS Activa</span>
-            <Badge variant={empresa?.plan === 'gratuito' ? 'freemium' : 'default'}>
-              {empresa?.plan === 'gratuito' ? 'Plan Freemium (15 SKUs)' : 'Plan Empresarial'}
+            <Badge variant={esFreemium ? 'freemium' : 'default'}>
+              {esFreemium ? 'Plan Freemium' : 'Plan Empresarial'}
             </Badge>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
@@ -40,103 +62,111 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tarjetas de Módulos */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Tarjeta Catálogo */}
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-start">
-              <div className="p-2 rounded-lg bg-blue-50 text-blue-700">
-                <Package className="h-5 w-5" />
-              </div>
-              <Badge variant="outline">Fase 2</Badge>
-            </div>
-            <CardTitle className="text-lg mt-3">Catálogo y Proveedores</CardTitle>
-            <CardDescription>
-              Gestión de artículos, parámetros logísticos ($S, i$), proveedores N:M e importación masiva CSV.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0 text-xs text-muted-foreground">
-            <div className="p-2.5 rounded-lg bg-slate-50 border flex justify-between items-center">
-              <span>Cupo Freemium:</span>
-              <span className="font-semibold text-foreground">0 de 15 SKUs</span>
-            </div>
-          </CardContent>
-        </Card>
+      {isError && (
+        <Alert variant="destructive">
+          <AlertDescription>No se pudieron cargar los indicadores del dashboard.</AlertDescription>
+        </Alert>
+      )}
 
-        {/* Tarjeta Transaccional */}
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-start">
-              <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <Badge variant="outline">Fase 3</Badge>
-            </div>
-            <CardTitle className="text-lg mt-3">Módulo Transaccional</CardTitle>
-            <CardDescription>
-              Ventas ágiles, actualización atómica de stock, notas batch y sincronización offline en IndexedDB.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0 text-xs text-muted-foreground">
-            <div className="p-2.5 rounded-lg bg-slate-50 border flex justify-between items-center">
-              <span>Modo PWA Offline:</span>
-              <span className="font-semibold text-emerald-600">Listo para enlazar</span>
-            </div>
-          </CardContent>
-        </Card>
+      {isLoading || !kpis ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : (
+        <>
+          {/* KPIs ejecutivos (HU-26) */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <KpiCard
+              titulo="Productos activos"
+              valor={String(kpis.productosActivos)}
+              icono={Package}
+              tono="primary"
+              descripcion={limite != null ? `de ${limite} SKUs del plan gratuito` : 'Sin límite de SKUs'}
+            />
+            <KpiCard
+              titulo="Valor de inventario"
+              valor={formatCurrency(kpis.valorInventario)}
+              icono={Wallet}
+              tono="neutral"
+              descripcion="Costo × stock actual"
+            />
+            <KpiCard
+              titulo="SKUs en alerta"
+              valor={String(kpis.skusEnAlerta)}
+              icono={BellRing}
+              tono={kpis.skusEnAlerta > 0 ? 'destructive' : 'success'}
+              descripcion="Bajo el punto de reorden"
+            />
+            <KpiCard
+              titulo="Ahorro estimado"
+              valor={formatCurrency(kpis.ahorroEstimadoProyectado)}
+              icono={PiggyBank}
+              tono="success"
+              descripcion="Proyectado por stock de seguridad"
+            />
+            <KpiCard
+              titulo="Mermas del mes"
+              valor={formatCurrency(kpis.mermasMes.valorEstimado)}
+              icono={TrendingDown}
+              tono="warning"
+              descripcion={`${kpis.mermasMes.cantidad} unidad(es)`}
+            />
+          </div>
 
-        {/* Tarjeta Motor DSS */}
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-start">
-              <div className="p-2 rounded-lg bg-purple-50 text-purple-700">
-                <Sparkles className="h-5 w-5" />
+          {/* Gráficos (HU-26) */}
+          <Suspense
+            fallback={
+              <div className="flex h-56 items-center justify-center rounded-xl border">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
-              <Badge variant="outline">Fases 4 - 6</Badge>
+            }
+          >
+            <div className="grid gap-6 lg:grid-cols-2">
+              <DashboardCharts
+                valorInventario={kpis.valorInventario}
+                ahorroEstimado={kpis.ahorroEstimadoProyectado}
+                mermasValor={kpis.mermasMes.valorEstimado}
+                skusEnAlerta={kpis.skusEnAlerta}
+                productosActivos={kpis.productosActivos}
+              />
             </div>
-            <CardTitle className="text-lg mt-3">Motor Algorítmico DSS</CardTitle>
-            <CardDescription>
-              Clasificación ABC, cálculo de lote económico (EOQ), punto de reorden (ROP) y alertas proactivas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0 text-xs text-muted-foreground">
-            <div className="p-2.5 rounded-lg bg-slate-50 border flex justify-between items-center">
-              <span>Modelos Cuantitativos:</span>
-              <span className="font-semibold text-purple-700">Backend 100% Validado</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </Suspense>
+        </>
+      )}
 
       {/* Alertas de reabastecimiento (HU-22) */}
       <AlertasResumenCard />
 
-      {/* Guía Rápida para el Usuario */}
+      {/* Accesos rápidos */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Estado del Sistema · Sprint 1 Frontend</CardTitle>
-          <CardDescription>
-            La Fase 0 (Setup del Stack) y Fase 1 (Autenticación y Onboarding de Empresa) han sido configuradas
-            exitosamente.
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Accesos rápidos</CardTitle>
+          <CardDescription>Continúa con las tareas habituales de reposición y análisis.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            Tu empresa se encuentra aislada de manera segura mediante <strong>Row-Level Security (RLS)</strong> en la base
-            de datos PostgreSQL. Todos los tokens y sesiones son validados criptográficamente en cada interacción con la API.
-          </p>
-          <div className="pt-2 flex flex-wrap gap-3">
-            <Link
-              to={ROUTES.catalogo}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-            >
-              <span>Gestionar catálogo de productos</span>
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
+        <CardContent className="flex flex-wrap gap-3 text-xs font-semibold text-primary">
+          <Link to={ROUTES.catalogo} className="inline-flex items-center gap-1.5 hover:underline">
+            Gestionar catálogo <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+          <Link to={ROUTES.alertas} className="inline-flex items-center gap-1.5 hover:underline">
+            Alertas EOQ/ROP <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+          <Link to={ROUTES.abc} className="inline-flex items-center gap-1.5 hover:underline">
+            Clasificación ABC <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+          <Link to={ROUTES.reportesCostos} className="inline-flex items-center gap-1.5 hover:underline">
+            Reporte de costos <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
         </CardContent>
       </Card>
+
+      {esFreemium && limite != null && kpis && kpis.productosActivos >= limite && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Alcanzaste el límite de {limite} SKUs del plan gratuito. Actualiza tu plan para registrar más productos.
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 };
