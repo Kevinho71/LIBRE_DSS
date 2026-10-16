@@ -306,25 +306,36 @@ export const dssRepository = {
     }));
   },
 
+  /**
+   * Persiste EOQ/ROP/SS de todos los productos en **una sola sentencia** (`UPDATE ... FROM
+   * (VALUES ...)`) en lugar de un UPDATE por producto. Elimina el bucle de ~N round-trips
+   * contra Neon por recálculo (clave para la simulación de 455 días — Plan §10).
+   */
   async actualizarEoqRop(empresaId: string, jobId: string, filas: FilaEoqRopCalculada[]): Promise<void> {
-    for (const f of filas) {
-      await db
-        .update(parametrosCalculo)
-        .set({
-          eoqCalculado: String(f.eoq),
-          ropCalculado: f.rop != null ? String(f.rop) : null,
-          stockSeguridadCalculado: f.ss != null ? String(f.ss) : null,
-          jobId,
-          fechaCalculo: clock.now(),
-        })
-        .where(
-          and(
-            eq(parametrosCalculo.empresaId, empresaId),
-            eq(parametrosCalculo.productoId, f.productoId),
-            eq(parametrosCalculo.esVigente, true)
-          )
-        );
-    }
+    if (filas.length === 0) return;
+
+    const valores = sql.join(
+      filas.map(
+        (f) =>
+          sql`(${f.productoId}::uuid, ${String(f.eoq)}::numeric, ${
+            f.rop != null ? String(f.rop) : null
+          }::numeric, ${f.ss != null ? String(f.ss) : null}::numeric)`
+      ),
+      sql`, `
+    );
+
+    await db.execute(sql`
+      UPDATE ${parametrosCalculo} AS pc
+      SET eoq_calculado = v.eoq,
+          rop_calculado = v.rop,
+          stock_seguridad_calculado = v.ss,
+          job_id = ${jobId}::uuid,
+          fecha_calculo = ${clock.now()}
+      FROM (VALUES ${valores}) AS v(producto_id, eoq, rop, ss)
+      WHERE pc.producto_id = v.producto_id
+        AND pc.empresa_id = ${empresaId}::uuid
+        AND pc.es_vigente = true
+    `);
   },
 
   async obtenerPosiciones(empresaId: string, productoId?: string): Promise<FilaPosicionInventario[]> {
@@ -458,28 +469,42 @@ export const dssRepository = {
     }));
   },
 
+  /**
+   * Asigna política P/Q, fase de arranque y parámetros del Sistema P a todos los productos
+   * en **una sola sentencia** `UPDATE ... FROM (VALUES ...)` (ver `actualizarEoqRop`).
+   */
   async asignarSistemas(empresaId: string, jobId: string, filas: FilaAsignacionSistema[]): Promise<void> {
-    for (const f of filas) {
-      await db
-        .update(parametrosCalculo)
-        .set({
-          politica: f.politica,
-          faseArranque: f.faseArranque,
-          intervaloRevisionDias: f.intervaloRevisionDias,
-          nivelObjetivoT: f.nivelObjetivoT != null ? String(f.nivelObjetivoT) : null,
-          ropCalculado: f.ropCalculado != null ? String(f.ropCalculado) : null,
-          stockSeguridadCalculado: f.stockSeguridadCalculado != null ? String(f.stockSeguridadCalculado) : null,
-          jobId,
-          fechaCalculo: clock.now(),
-        })
-        .where(
-          and(
-            eq(parametrosCalculo.empresaId, empresaId),
-            eq(parametrosCalculo.productoId, f.productoId),
-            eq(parametrosCalculo.esVigente, true)
-          )
-        );
-    }
+    if (filas.length === 0) return;
+
+    const valores = sql.join(
+      filas.map(
+        (f) =>
+          sql`(${f.productoId}::uuid, ${f.politica}::text, ${f.faseArranque}::int, ${
+            f.intervaloRevisionDias != null ? f.intervaloRevisionDias : null
+          }::int, ${f.nivelObjetivoT != null ? String(f.nivelObjetivoT) : null}::numeric, ${
+            f.ropCalculado != null ? String(f.ropCalculado) : null
+          }::numeric, ${
+            f.stockSeguridadCalculado != null ? String(f.stockSeguridadCalculado) : null
+          }::numeric)`
+      ),
+      sql`, `
+    );
+
+    await db.execute(sql`
+      UPDATE ${parametrosCalculo} AS pc
+      SET politica = v.politica,
+          fase_arranque = v.fase,
+          intervalo_revision_dias = v.rev,
+          nivel_objetivo_t = v.t,
+          rop_calculado = v.rop,
+          stock_seguridad_calculado = v.ss,
+          job_id = ${jobId}::uuid,
+          fecha_calculo = ${clock.now()}
+      FROM (VALUES ${valores}) AS v(producto_id, politica, fase, rev, t, rop, ss)
+      WHERE pc.producto_id = v.producto_id
+        AND pc.empresa_id = ${empresaId}::uuid
+        AND pc.es_vigente = true
+    `);
   },
 
   async obtenerProveedor(empresaId: string, proveedorId: string): Promise<{ id: string; nombre: string } | null> {

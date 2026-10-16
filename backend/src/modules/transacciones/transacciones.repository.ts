@@ -188,46 +188,50 @@ export const transaccionesRepository = {
         }
       }
 
-      // 3. Descontar stock e insertar transacciones
-      const creadas: typeof transacciones.$inferSelect[] = [];
+      // 3. Descontar stock (una sola sentencia) e insertar transacciones (un solo insert).
+      //    Evita 2 round-trips por ítem contra Neon (clave para la simulación — Plan §10).
+      const valoresStock = sql.join(
+        data.items.map((item) => {
+          const prod = prodMap.get(item.productoId)!;
+          const nuevoStock = Number((Number(prod.stockActual) - item.cantidad).toFixed(2));
+          return sql`(${prod.id}::uuid, ${String(nuevoStock)}::numeric)`;
+        }),
+        sql`, `
+      );
 
-      for (const item of data.items) {
-        const prod = prodMap.get(item.productoId)!;
-        const stockActual = Number(prod.stockActual);
-        const nuevoStock = Number((stockActual - item.cantidad).toFixed(2));
-        const precioVentaHistorico = item.precioVenta !== undefined ? item.precioVenta : Number(prod.precioVenta);
-        const costoUnitarioHistorico = Number(prod.costoUnitario);
+      await tx.execute(sql`
+        UPDATE ${productos} AS p
+        SET stock_actual = v.stock,
+            updated_at = now()
+        FROM (VALUES ${valoresStock}) AS v(producto_id, stock)
+        WHERE p.id = v.producto_id
+          AND p.empresa_id = ${empresaId}::uuid
+      `);
 
-        // Descontar
-        await tx
-          .update(productos)
-          .set({
-            stockActual: String(nuevoStock),
-            updatedAt: new Date(),
+      const creadas = await tx
+        .insert(transacciones)
+        .values(
+          data.items.map((item) => {
+            const prod = prodMap.get(item.productoId)!;
+            const precioVentaHistorico = item.precioVenta !== undefined ? item.precioVenta : Number(prod.precioVenta);
+            const costoUnitarioHistorico = Number(prod.costoUnitario);
+            return {
+              empresaId,
+              notaId,
+              productoId: prod.id,
+              tipo: 'venta',
+              cantidad: String(item.cantidad),
+              costoUnitarioHistorico: String(costoUnitarioHistorico),
+              precioVentaHistorico: String(precioVentaHistorico),
+              motivo: data.motivo ?? null,
+              estadoPago: data.estadoPago ?? 'contado',
+              llaveIdempotencia: data.llaveIdempotencia ? `${data.llaveIdempotencia}_${item.productoId}` : null,
+              fechaEvento,
+              fechaRegistro: clock.now(),
+            };
           })
-          .where(eq(productos.id, prod.id));
-
-        // Insertar movimiento
-        const [trx] = await tx
-          .insert(transacciones)
-          .values({
-            empresaId,
-            notaId,
-            productoId: prod.id,
-            tipo: 'venta',
-            cantidad: String(item.cantidad),
-            costoUnitarioHistorico: String(costoUnitarioHistorico),
-            precioVentaHistorico: String(precioVentaHistorico),
-            motivo: data.motivo ?? null,
-            estadoPago: data.estadoPago ?? 'contado',
-            llaveIdempotencia: data.llaveIdempotencia ? `${data.llaveIdempotencia}_${item.productoId}` : null,
-            fechaEvento,
-            fechaRegistro: clock.now(),
-          })
-          .returning();
-
-        creadas.push(trx);
-      }
+        )
+        .returning();
 
       return { notaId, transacciones: creadas };
     });
