@@ -1,0 +1,91 @@
+name: CD - Deploy to AWS
+
+on:
+  workflow_run:
+    workflows: ["CI - Quality Gate"]
+    branches: [main]
+    types: [completed]
+
+# Evita despliegues simultáneos en producción
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Production (AWS)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      id-token: write   # Requerido para autenticación OIDC con AWS
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ─── PASO 1: MIGRACIONES DE BASE DE DATOS ─────────────────────────────
+      - name: Run Database Migrations (Neon)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+        run: |
+          npm run db:migrate --workspace=backend
+
+      # ─── PASO 2: AUTENTICACIÓN CON AWS (OIDC) ──────────────────────────────
+      - name: Authenticate with AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ─── PASO 3: DESCARGA DE ARTEFACTOS GENERADOS POR CI ───────────────────
+      - name: Download backend package from CI run
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-lambda-${{ github.sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Download frontend dist from CI run
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: frontend-dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      # ─── PASO 4: DESPLIEGUE BACKEND (LAMBDA) ────────────────────────────────
+      - name: Deploy Backend to AWS Lambda
+        run: |
+          echo "Actualizando código de función Lambda..."
+          aws lambda update-function-code \
+            --function-name ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://backend-lambda-${{ github.sha }}.zip
+
+      # ─── PASO 5: DESPLIEGUE FRONTEND (S3 + CLOUDFRONT) ─────────────────────
+      - name: Sync Frontend files to S3
+        run: |
+          echo "Sincronizando assets con S3..."
+          aws s3 sync frontend-dist/assets/ s3://${{ secrets.AWS_S3_BUCKET }}/assets/ \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable"
+
+          aws s3 sync frontend-dist/ s3://${{ secrets.AWS_S3_BUCKET }}/ \
+            --exclude "assets/*" \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Invalidate CloudFront CDN Cache
+        run: |
+          echo "Creando invalidación en CloudFront para index.html..."
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
