@@ -101,4 +101,18 @@ describe('VentaPage: flujo ágil en celular', () => {
     expect(await screen.findByText(/venta registrada/i)).toBeInTheDocument();
     expect(screen.getByText(/detalle de la nota \(0\)/i)).toBeInTheDocument();
   });
+
+  it('la lista desplegable compacta muestra el catálogo y un toque agrega 1 unidad', async () => {
+    renderPagina();
+    expect(screen.queryByRole('list', { name: /productos del catálogo/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /elegir de la lista de productos/i }));
+    const lista = await screen.findByRole('list', { name: /productos del catálogo/i });
+    expect(mockBuscar).toHaveBeenCalledWith('', 100, expect.anything());
+
+    fireEvent.click(await within(lista).findByRole('button', { name: /cuaderno cuadriculado/i }));
+    expect(screen.getByLabelText(/cantidad de cuaderno cuadriculado/i)).toHaveValue(1);
+    // La lista sigue abierta y marca cuántas unidades van en la nota.
+    expect(within(lista).getByText('×1')).toBeInTheDocument();
+  });
 });

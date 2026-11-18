@@ -21,6 +21,8 @@ import { AbcPage } from '@/pages/abc/AbcPage';
 import { AlertasPage } from '@/pages/alertas/AlertasPage';
 import { SistemasPage } from '@/pages/dss/SistemasPage';
 import { ReceiptReviewPage } from '@/pages/ingesta/ReceiptReviewPage';
+import { InventarioIaPage } from '@/pages/ingesta/InventarioIaPage';
+import { IaPage } from '@/pages/ingesta/IaPage';
 import { ReporteCostosPage } from '@/pages/reportes/ReporteCostosPage';
 import { UsuariosPage } from '@/pages/usuarios/UsuariosPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -92,7 +94,9 @@ export function App() {
                   </AdminRoute>
                 }
               />
-              <Route path="ingesta" element={<ReceiptReviewPage />} />
+              <Route path="ingesta" element={<IaPage />} />
+              <Route path="ingesta/venta" element={<ReceiptReviewPage />} />
+              <Route path="ingesta/inventario" element={<InventarioIaPage />} />
             </Route>
 
             {/* 404 No Encontrado */}

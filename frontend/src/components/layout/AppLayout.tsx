@@ -68,7 +68,7 @@ export const AppLayout: React.FC = () => {
       name: 'Ingesta IA',
       href: ROUTES.ingesta,
       icon: FileScan,
-      active: location.pathname === ROUTES.ingesta,
+      active: location.pathname.startsWith(ROUTES.ingesta),
     },
     { name: 'Catálogo', href: ROUTES.catalogo, icon: Package, active: location.pathname === ROUTES.catalogo },
     { name: 'Proveedores', href: ROUTES.proveedores, icon: Truck, active: location.pathname === ROUTES.proveedores },
@@ -289,7 +289,7 @@ export const AppLayout: React.FC = () => {
         </main>
       </div>
 
-      {/* Navegación inferior (celular): las cuatro tareas diarias y el resto en el menú */}
+      {/* Navegación inferior (celular): inicio, vender, IA (central), qué pedir y el resto en "Más" */}
       <nav
         aria-label="Navegación principal"
         className={`fixed bottom-0 inset-x-0 z-40 h-16 items-stretch border-t bg-background/95 backdrop-blur lg:hidden ${
@@ -298,13 +298,34 @@ export const AppLayout: React.FC = () => {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {[
-          { name: 'Inicio', href: ROUTES.dashboard, icon: LayoutDashboard },
-          { name: 'Vender', href: ROUTES.venta, icon: ShoppingCart },
-          { name: 'Qué pedir', href: ROUTES.alertas, icon: BellRing },
-          { name: 'Productos', href: ROUTES.catalogo, icon: Package },
+          { name: 'Inicio', href: ROUTES.dashboard, icon: LayoutDashboard, central: false },
+          { name: 'Vender', href: ROUTES.venta, icon: ShoppingCart, central: false },
+          { name: 'IA', href: ROUTES.ingesta, icon: FileScan, central: true },
+          { name: 'Qué pedir', href: ROUTES.alertas, icon: BellRing, central: false },
         ].map((item) => {
           const Icon = item.icon;
-          const activo = location.pathname === item.href;
+          const activo = item.central ? location.pathname.startsWith(item.href) : location.pathname === item.href;
+          if (item.central) {
+            // Botón central destacado: acceso a la ingesta con IA (vender o escanear inventario).
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                aria-current={activo ? 'page' : undefined}
+                aria-label="IA: escanear cuaderno o inventario"
+                className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-primary"
+              >
+                <span
+                  className={`-mt-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background ${
+                    activo ? 'ring-primary/30' : ''
+                  }`}
+                >
+                  <Icon className="h-6 w-6" />
+                </span>
+                {item.name}
+              </Link>
+            );
+          }
           return (
             <Link
               key={item.name}

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProductAutocomplete } from '@/components/transacciones/ProductAutocomplete';
+import { ProductoDesplegable } from '@/components/transacciones/ProductoDesplegable';
 import { ApiError } from '@/api/client';
 import type { AlertaReabastecimiento } from '@/api/transacciones.api';
 import type { ProductoBusqueda } from '@/api/productos.api';
@@ -44,6 +45,11 @@ export const VentaPage: React.FC = () => {
 
   const total = useMemo(
     () => carrito.reduce((acc, item) => acc + item.cantidad * item.precioVenta, 0),
+    [carrito]
+  );
+
+  const cantidadesEnNota = useMemo(
+    () => Object.fromEntries(carrito.map((i) => [i.producto.id, i.cantidad])),
     [carrito]
   );
 
@@ -204,6 +210,8 @@ export const VentaPage: React.FC = () => {
           <Label htmlFor="producto-venta">Buscar producto (toca el resultado para agregarlo)</Label>
           <ProductAutocomplete id="producto-venta" value={null} onChange={agregarProducto} />
         </div>
+
+        <ProductoDesplegable cantidades={cantidadesEnNota} onElegir={agregarProducto} />
 
         <Card>
           <CardHeader className="pb-2">
