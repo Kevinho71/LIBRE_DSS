@@ -22,6 +22,11 @@ const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_SESSION_TOKEN: z.string().optional(),
+  // Almacenamiento S3-compatible fuera de AWS (Cloudflare R2, Railway Bucket, MinIO).
+  // Si se define, se usa como endpoint del cliente S3 con direccionamiento por ruta.
+  S3_ENDPOINT: z.string().url().optional(),
+  // Orígenes permitidos por CORS, separados por comas (vacío = solo mismo origen en producción).
+  CORS_ORIGINS: z.string().default(''),
   // Simulación determinística (Plan de Simulación §4.1). Fecha inicial del reloj inyectable.
   DSS_SIM_FECHA: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'DSS_SIM_FECHA debe tener formato YYYY-MM-DD').optional(),
   // Habilita el endpoint POST /dss/simular/reloj para avanzar la fecha en caliente.
@@ -33,6 +38,13 @@ const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
   console.error('Configuración de variables de entorno inválida:', parsed.error.format());
   throw new Error('Variables de entorno incompletas o inválidas');
+}
+
+const JWT_SECRET_DESARROLLO = 'libredss_dev_secret_key_change_in_production_123!';
+
+// En producción el secreto de firma debe provenir del entorno: el valor por defecto es público.
+if (parsed.data.NODE_ENV === 'production' && parsed.data.JWT_SECRET === JWT_SECRET_DESARROLLO) {
+  throw new Error('JWT_SECRET es obligatorio en producción (no se admite el valor por defecto).');
 }
 
 export const env = parsed.data;

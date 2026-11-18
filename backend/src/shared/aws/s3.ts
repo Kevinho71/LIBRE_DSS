@@ -8,6 +8,8 @@ export function getS3Client(): S3Client {
   if (!s3Client) {
     s3Client = new S3Client({
       region: env.AWS_REGION,
+      // Bucket S3-compatible (R2, Railway Bucket, MinIO): endpoint propio y URLs por ruta.
+      ...(env.S3_ENDPOINT ? { endpoint: env.S3_ENDPOINT, forcePathStyle: true } : {}),
       credentials: {
         accessKeyId: env.AWS_ACCESS_KEY_ID ?? '',
         secretAccessKey: env.AWS_SECRET_ACCESS_KEY ?? '',
