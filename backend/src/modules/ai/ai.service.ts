@@ -16,7 +16,8 @@ import {
 export const aiService = {
   async extraerIngesta(empresaId: string, dto: ExtraerIngestaDto): Promise<ResultadoExtraccion> {
     const { mimeType, base64 } = await leerObjetoComoBase64(env.AWS_S3_BUCKET, dto.s3Key);
-    const extraccion = await extraerDesdeImagen(mimeType, base64);
+    const modo = dto.modo ?? 'venta';
+    const extraccion = await extraerDesdeImagen(mimeType, base64, modo);
 
     const items: ItemMatcheado[] = await Promise.all(
       extraccion.items.map(async (item) => {
@@ -26,6 +27,7 @@ export const aiService = {
           descripcion: item.descripcion,
           cantidad: item.cantidad,
           precioUnitario: item.precioUnitario ?? null,
+          ...(modo === 'inventario' ? { costoUnitario: item.costoUnitario ?? null } : {}),
           productoId: mejor?.productoId ?? null,
           nombreProducto: mejor?.nombre ?? null,
           sku: mejor?.sku ?? null,
@@ -48,6 +50,7 @@ export const aiService = {
       empresaId,
       ingestaId: ingesta.id,
       totalItems: items.length,
+      modo,
     });
 
     return {

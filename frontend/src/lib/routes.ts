@@ -12,6 +12,8 @@ export const ROUTES = {
   reportesCostos: '/reportes/costos',
   usuarios: '/usuarios',
   ingesta: '/ingesta',
+  ingestaVenta: '/ingesta/venta',
+  ingestaInventario: '/ingesta/inventario',
   login: '/login',
   register: '/register',
   terminos: '/terminos',

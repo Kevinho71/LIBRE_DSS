@@ -1,7 +1,9 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  ArrowLeft,
   Camera,
   CheckCircle2,
   ChevronDown,
@@ -35,6 +37,7 @@ import { generarUuid } from '@/lib/idempotency';
 import { useAuth } from '@/context/AuthContext';
 import { formatCurrency, hoyISO } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { ROUTES } from '@/lib/routes';
 import type { ProductoBusqueda } from '@/api/productos.api';
 import type { ItemMatcheado, ResultadoConfirmacion, ResultadoExtraccion } from '@libredss/shared';
 
@@ -456,9 +459,15 @@ export const ReceiptReviewPage: React.FC = () => {
   return (
     <div className={cn('space-y-6', enRevision && 'pb-28')}>
       <div>
+        <Button asChild variant="ghost" size="sm" className="-ml-2">
+          <Link to={ROUTES.ingesta}>
+            <ArrowLeft className="h-4 w-4" />
+            IA
+          </Link>
+        </Button>
         <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-foreground">
           <FileScan className="h-6 w-6 text-primary" />
-          Ingesta asistida por IA
+          Vender con IA
         </h1>
         {!enRevision && (
           <p className="text-sm text-muted-foreground">
@@ -696,7 +705,7 @@ export const ReceiptReviewPage: React.FC = () => {
                           {!fila.producto && (
                             <Button type="button" variant="outline" size="sm" onClick={() => setHojaKey(fila.key)}>
                               <Plus className="h-4 w-4" />
-                              No está en el catálogo: agregarlo como producto nuevo
+                              Producto nuevo
                             </Button>
                           )}
                         </div>

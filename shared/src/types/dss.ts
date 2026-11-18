@@ -88,14 +88,20 @@ export interface ItemMatcheado {
   descripcion: string;
   cantidad: number;
   precioUnitario: number | null;
+  /** Solo en la lectura de inventario: costo de compra unitario si es visible. */
+  costoUnitario?: number | null;
   productoId: string | null;
   nombreProducto: string | null;
   sku: string | null;
   similitud: number | null;
 }
 
+/** `venta`: cuaderno o recibo de ventas. `inventario`: lista de productos con stock (sin ventas). */
+export type ModoIngesta = 'venta' | 'inventario';
+
 export interface ExtraerIngestaRequest {
   s3Key: string;
+  modo?: ModoIngesta;
 }
 
 export interface ResultadoExtraccion {

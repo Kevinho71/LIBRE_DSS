@@ -1,11 +1,18 @@
 import { GoogleGenAI, Type, type Schema } from '@google/genai';
 import { env } from '../../shared/utils/env';
-import { ExtraccionRecibo, ItemExtraidoCrudo } from './ai.types';
+import { ExtraccionRecibo, ItemExtraidoCrudo, ModoIngesta } from './ai.types';
 
-const PROMPT =
+const PROMPT_VENTA =
   'Extrae los productos y cantidades visibles en la imagen de este recibo o cuaderno de ventas. ' +
   'Devuelve un JSON con una fecha opcional y la lista de ítems. ' +
   'Cada ítem debe incluir la descripción del producto tal como aparece, la cantidad y, si es visible, el precio unitario en bolivianos.';
+
+const PROMPT_INVENTARIO =
+  'Extrae los productos de esta imagen de un inventario, lista de productos o estante. ' +
+  'No son ventas: la cantidad de cada ítem es el stock (unidades disponibles). ' +
+  'Devuelve un JSON con la lista de ítems. Cada ítem debe incluir el nombre del producto tal como aparece, ' +
+  'la cantidad en stock y, si son visibles, el costo de compra unitario y el precio de venta unitario en bolivianos. ' +
+  'No inventes valores que no estén en la imagen.';
 
 const RESPONSE_SCHEMA: Schema = {
   type: Type.OBJECT,
@@ -22,6 +29,7 @@ const RESPONSE_SCHEMA: Schema = {
           descripcion: { type: Type.STRING, description: 'Descripción o nombre del producto tal como aparece.' },
           cantidad: { type: Type.NUMBER, description: 'Cantidad de unidades.' },
           precioUnitario: { type: Type.NUMBER, description: 'Precio unitario en bolivianos, si es visible.' },
+          costoUnitario: { type: Type.NUMBER, description: 'Costo de compra unitario en bolivianos, si es visible.' },
         },
         required: ['descripcion', 'cantidad'],
       },
@@ -29,6 +37,10 @@ const RESPONSE_SCHEMA: Schema = {
   },
   required: ['items'],
 };
+
+export function promptPara(modo: ModoIngesta): string {
+  return modo === 'inventario' ? PROMPT_INVENTARIO : PROMPT_VENTA;
+}
 
 let client: GoogleGenAI | null = null;
 
@@ -42,7 +54,7 @@ function getClient(): GoogleGenAI {
   return client;
 }
 
-function normalizarExtraccion(raw: unknown): ExtraccionRecibo {
+export function normalizarExtraccion(raw: unknown): ExtraccionRecibo {
   if (!raw || typeof raw !== 'object') {
     throw new Error('La respuesta de Gemini no tiene una estructura JSON válida.');
   }
@@ -52,7 +64,7 @@ function normalizarExtraccion(raw: unknown): ExtraccionRecibo {
 
   const items: ItemExtraidoCrudo[] = [];
   for (const raw of itemsArray) {
-    const item = raw as { descripcion?: unknown; cantidad?: unknown; precioUnitario?: unknown };
+    const item = raw as { descripcion?: unknown; cantidad?: unknown; precioUnitario?: unknown; costoUnitario?: unknown };
     const cantidad = typeof item.cantidad === 'number' ? item.cantidad : Number(item.cantidad);
     if (typeof item.descripcion !== 'string' || !item.descripcion.trim() || !Number.isFinite(cantidad)) {
       continue;
@@ -64,6 +76,10 @@ function normalizarExtraccion(raw: unknown): ExtraccionRecibo {
         item.precioUnitario != null && Number.isFinite(Number(item.precioUnitario))
           ? Number(item.precioUnitario)
           : null,
+      costoUnitario:
+        item.costoUnitario != null && Number.isFinite(Number(item.costoUnitario))
+          ? Number(item.costoUnitario)
+          : null,
     });
   }
 
@@ -73,7 +89,11 @@ function normalizarExtraccion(raw: unknown): ExtraccionRecibo {
   };
 }
 
-export async function extraerDesdeImagen(mimeType: string, base64Data: string): Promise<ExtraccionRecibo> {
+export async function extraerDesdeImagen(
+  mimeType: string,
+  base64Data: string,
+  modo: ModoIngesta = 'venta'
+): Promise<ExtraccionRecibo> {
   const ai = getClient();
 
   const response = await ai.models.generateContent({
@@ -83,7 +103,7 @@ export async function extraerDesdeImagen(mimeType: string, base64Data: string): 
         role: 'user',
         parts: [
           { inlineData: { mimeType, data: base64Data } },
-          { text: PROMPT },
+          { text: promptPara(modo) },
         ],
       },
     ],

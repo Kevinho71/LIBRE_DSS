@@ -1,7 +1,10 @@
+export type ModoIngesta = 'venta' | 'inventario';
+
 export interface ItemExtraidoCrudo {
   descripcion: string;
   cantidad: number;
   precioUnitario?: number | null;
+  costoUnitario?: number | null;
 }
 
 export interface ExtraccionRecibo {
@@ -13,6 +16,7 @@ export interface ItemMatcheado {
   descripcion: string;
   cantidad: number;
   precioUnitario: number | null;
+  costoUnitario?: number | null;
   productoId: string | null;
   nombreProducto: string | null;
   sku: string | null;
@@ -21,6 +25,7 @@ export interface ItemMatcheado {
 
 export interface ExtraerIngestaDto {
   s3Key: string;
+  modo?: ModoIngesta;
 }
 
 export interface ConfirmarIngestaItemDto {

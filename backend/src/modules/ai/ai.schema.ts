@@ -4,6 +4,8 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 export const extraerIngestaSchema = z.object({
   s3Key: z.string().min(1, 's3Key es obligatoria').max(512, 's3Key no puede exceder 512 caracteres'),
+  // `inventario` lee una lista de productos con stock y costo, sin interpretarla como ventas.
+  modo: z.enum(['venta', 'inventario']).default('venta'),
 });
 
 export const confirmarIngestaSchema = z.object({
