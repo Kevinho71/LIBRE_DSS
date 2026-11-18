@@ -1,10 +1,10 @@
 // Service Worker de LIBREDSS — app shell cacheable + API siempre en red.
 // Las ventas offline se encolan en IndexedDB (no en el SW); aquí solo se
 // garantiza que la SPA cargue sin red.
-const CACHE_VERSION = 'libredss-shell-v2';
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon.svg'];
+const CACHE_VERSION = 'libredss-shell-v3';
+const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon.svg', '/icon-192.png'];
 
-const RUTAS_API = ['/auth', '/productos', '/transacciones', '/storage', '/dss', '/ingesta', '/dashboard', '/usuarios'];
+const RUTAS_API = ['/api'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
