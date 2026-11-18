@@ -1,4 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
+import crypto from 'crypto';
 import { handler } from '../src/index';
 import { db } from '../src/db/client';
 import { empresas } from '../src/db/schema';
@@ -396,6 +397,42 @@ describe.runIf(isDatabaseConfigured)('Módulo Transaccional E2E (Sprint 2 / LIB-
     expect(body.uploadUrl).toBeDefined();
     expect(body.key).toContain(empresaId);
     expect(body.expiresInSeconds).toBe(300);
+  });
+
+  it('venta batch con UUID de nota y llave (como la PWA y su cola offline) no rebasa varchar(64) y es idempotente', async () => {
+    const notaId = crypto.randomUUID();
+    const llaveIdempotencia = crypto.randomUUID();
+    const crearEvento = (): LambdaEvent => ({
+      rawPath: '/api/v1/transacciones/batch',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${authToken}` },
+      requestContext: { http: { method: 'POST', path: '/api/v1/transacciones/batch', sourceIp: '127.0.0.1', userAgent: 'vitest' } },
+      body: JSON.stringify({
+        notaId,
+        llaveIdempotencia,
+        items: [{ productoId: producto2Id, cantidad: 1, precioVenta: 90 }],
+        estadoPago: 'contado',
+        fechaEvento: '2026-11-18',
+      }),
+    });
+    const stockProd2 = async (): Promise<number> => {
+      const r = await handler({
+        rawPath: `/api/v1/productos/${producto2Id}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        requestContext: { http: { method: 'GET', path: `/api/v1/productos/${producto2Id}`, sourceIp: '127.0.0.1', userAgent: 'vitest' } },
+      });
+      return JSON.parse(r.body).stockActual;
+    };
+
+    const antes = await stockProd2();
+    const primera = await handler(crearEvento());
+    expect(primera.statusCode).toBe(201);
+    expect(await stockProd2()).toBe(antes - 1);
+
+    // Reintento (p. ej. sincronización de la cola offline): no vuelve a descontar.
+    const reintento = await handler(crearEvento());
+    expect(reintento.statusCode).toBeLessThan(300);
+    expect(JSON.parse(reintento.body).idempotente).toBe(true);
+    expect(await stockProd2()).toBe(antes - 1);
   });
 
   afterAll(async () => {

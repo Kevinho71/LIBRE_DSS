@@ -4,6 +4,7 @@ import { leerObjetoComoBase64 } from '../../shared/aws/s3';
 import { extraerDesdeImagen } from './ai.extractor';
 import { aiMatcher } from './ai.matcher';
 import { aiRepository } from './ai.repository';
+import { acotarLlave } from '../transacciones/idempotencia';
 import {
   ConfirmarIngestaDto,
   ExtraerIngestaDto,
@@ -39,7 +40,8 @@ export const aiService = {
       estado: 'pendiente',
       fechaEvento: extraccion.fecha ?? null,
       items: { fecha: extraccion.fecha ?? null, items },
-      llaveIdempotencia: dto.s3Key,
+      // La clave S3 (recibos/<empresa>/<uuid>_<archivo>) supera los 64 caracteres de la columna.
+      llaveIdempotencia: acotarLlave(dto.s3Key),
     });
 
     logger.info('Ingesta de recibo extraída (pendiente de confirmación)', {
