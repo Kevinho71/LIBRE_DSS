@@ -18,6 +18,10 @@ const ComparativoCostosChart = React.lazy(() =>
   import('@/components/reportes/ComparativoCostosChart').then((modulo) => ({ default: modulo.ComparativoCostosChart }))
 );
 
+const TendenciaCostosChart = React.lazy(() =>
+  import('@/components/reportes/TendenciaCostosChart').then((modulo) => ({ default: modulo.TendenciaCostosChart }))
+);
+
 const OPCIONES_DIAS = [7, 30, 60, 90, 365];
 
 /**
@@ -146,6 +150,28 @@ export const ReporteCostosPage: React.FC = () => {
               </Suspense>
             </CardContent>
           </Card>
+
+          {data.productos.length >= 2 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Tendencia de costo por producto</CardTitle>
+                <CardDescription>
+                  Empírica (naranja) frente a DSS (azul), ordenado por ahorro descendente.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Suspense
+                  fallback={
+                    <div className="flex h-72 items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  }
+                >
+                  <TendenciaCostosChart productos={data.productos} />
+                </Suspense>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="pb-3">

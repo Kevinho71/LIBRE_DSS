@@ -34,7 +34,9 @@ export const KpiCard: React.FC<KpiCardProps> = ({ titulo, valor, icono: Icon, de
         </div>
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{titulo}</p>
-          <p className="mt-0.5 truncate text-2xl font-extrabold tracking-tight text-foreground">{valor}</p>
+          <p className="mt-0.5 break-words text-lg font-extrabold leading-tight tracking-tight text-foreground sm:text-xl">
+            {valor}
+          </p>
           {descripcion && <p className="mt-0.5 text-xs text-muted-foreground">{descripcion}</p>}
         </div>
       </CardContent>
