@@ -8,6 +8,8 @@ export function useDashboardKpis() {
     queryKey: ['dashboard', 'kpis'],
     queryFn: () => dashboardApi.obtenerKpis(),
     staleTime: 30_000,
+    // Las ventas cambian todo el día (y la cola offline sincroniza en segundo plano): al abrir el dashboard se actualiza siempre.
+    refetchOnMount: 'always',
   });
 }
 

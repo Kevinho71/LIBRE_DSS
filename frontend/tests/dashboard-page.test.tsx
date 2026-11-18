@@ -71,6 +71,11 @@ describe('DashboardPage (HU-26)', () => {
       skusEnAlerta: 2,
       mermasMes: { cantidad: 4, valorEstimado: 320 },
       ahorroEstimadoProyectado: 1500,
+      ventas: {
+        hoy: { monto: 90, unidades: 1, notas: 1 },
+        mes: { monto: 1250.5, unidades: 20, notas: 8 },
+        ultimos7Dias: [],
+      },
     });
 
     renderDashboard();
@@ -80,6 +85,10 @@ describe('DashboardPage (HU-26)', () => {
     expect(screen.getByText('SKUs en alerta')).toBeInTheDocument();
     expect(screen.getByText('Ahorro estimado')).toBeInTheDocument();
     expect(screen.getByText('Mermas del mes')).toBeInTheDocument();
+    expect(screen.getByText('Ventas de hoy')).toBeInTheDocument();
+    expect(screen.getByText('1 venta(s) · 1 unidad(es)')).toBeInTheDocument();
+    expect(screen.getByText('Ventas del mes')).toBeInTheDocument();
+    expect(screen.getByText('8 venta(s) · 20 unidad(es)')).toBeInTheDocument();
     expect(screen.getByText('de 15 SKUs del plan gratuito')).toBeInTheDocument();
     expect(await screen.findByTestId('chart-valor')).toBeInTheDocument();
     expect(await screen.findByTestId('chart-cobertura')).toBeInTheDocument();

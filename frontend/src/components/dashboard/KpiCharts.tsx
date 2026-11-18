@@ -18,6 +18,39 @@ const COLOR_AMBER = '#d97706';
 const COLOR_BLUE = '#2563eb';
 const COLOR_RED = '#dc2626';
 
+/** Etiqueta corta del eje X para una fecha YYYY-MM-DD: día de la semana y número (p. ej. "mié 18"). */
+function etiquetaDia(fecha: string): string {
+  const d = new Date(`${fecha}T12:00:00`);
+  const dia = d.toLocaleDateString('es-BO', { weekday: 'short' }).replace('.', '');
+  return `${dia} ${d.getDate()}`;
+}
+
+export interface VentasSemanaChartProps {
+  datos: Array<{ fecha: string; monto: number }>;
+}
+
+/** Ventas por día de la última semana (barras verticales con tooltip en Bs). */
+export const VentasSemanaChart: React.FC<VentasSemanaChartProps> = ({ datos }) => {
+  const serie = datos.map((d) => ({ dia: etiquetaDia(d.fecha), monto: d.monto }));
+  const total = datos.reduce((acc, d) => acc + d.monto, 0);
+
+  return (
+    <figure className="w-full">
+      <div className="h-56 w-full" role="img" aria-label="Ventas por día de los últimos 7 días">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={serie} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+            <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} width={44} tickFormatter={(v: number) => `${Math.round(v)}`} />
+            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+            <Bar dataKey="monto" name="Ventas" fill={COLOR_EMERALD} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <figcaption className="sr-only">Total de la semana: {formatCurrency(total)}.</figcaption>
+    </figure>
+  );
+};
+
 /**
  * Comparación de magnitudes del inventario (HU-26): valor de inventario, ahorro
  * estimado proyectado y mermas del mes. Barras horizontales con etiquetas

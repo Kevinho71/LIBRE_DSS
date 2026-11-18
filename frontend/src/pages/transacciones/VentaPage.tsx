@@ -140,6 +140,7 @@ export const VentaPage: React.FC = () => {
           `Nota de venta ${resultado.notaId.slice(0, 8)} registrada con ${resultado.resultado.totalItems ?? carrito.length} ítem(s).`
         );
         await queryClient.invalidateQueries({ queryKey: ['transacciones'] });
+        await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       } else {
         setExito('Sin conexión: la nota quedó guardada en el dispositivo y se sincronizará automáticamente.');
         await refrescarPendientes();
