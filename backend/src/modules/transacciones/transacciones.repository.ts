@@ -15,6 +15,7 @@ import {
 import { NotFoundError, BadRequestError } from '../../shared/errors/AppError';
 import { clock } from '../../shared/utils/clock';
 import crypto from 'crypto';
+import { llaveItemBatch } from './idempotencia';
 
 export const transaccionesRepository = {
   async findByIdempotencia(
@@ -225,7 +226,7 @@ export const transaccionesRepository = {
               precioVentaHistorico: String(precioVentaHistorico),
               motivo: data.motivo ?? null,
               estadoPago: data.estadoPago ?? 'contado',
-              llaveIdempotencia: data.llaveIdempotencia ? `${data.llaveIdempotencia}_${item.productoId}` : null,
+              llaveIdempotencia: data.llaveIdempotencia ? llaveItemBatch(data.llaveIdempotencia, item.productoId) : null,
               fechaEvento,
               fechaRegistro: clock.now(),
             };

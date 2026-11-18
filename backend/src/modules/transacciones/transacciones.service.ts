@@ -1,4 +1,5 @@
 import { transaccionesRepository } from './transacciones.repository';
+import { llaveItemBatch } from './idempotencia';
 import {
   RegistrarVentaDto,
   RegistrarVentaBatchDto,
@@ -73,7 +74,16 @@ export const transaccionesService = {
 
   async registrarVentaBatch(empresaId: string, data: RegistrarVentaBatchDto) {
     if (data.llaveIdempotencia) {
-      const previas = await transaccionesRepository.findByIdempotencia(empresaId, data.llaveIdempotencia);
+      // Cada ítem se guarda con su propia llave derivada de la de la nota (ver idempotencia.ts):
+      // un reintento (p. ej. la cola offline) se detecta buscando las llaves derivadas.
+      const llaveNota = data.llaveIdempotencia;
+      const previas = (
+        await Promise.all(
+          data.items.map((item) =>
+            transaccionesRepository.findByIdempotencia(empresaId, llaveItemBatch(llaveNota, item.productoId))
+          )
+        )
+      ).flat();
       if (previas.length > 0) {
         logger.info('Venta batch duplicada detectada por idempotencia', {
           empresaId,
