@@ -8,10 +8,12 @@ interface DialogProps {
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
   className?: string;
+  /** `bottom` sube desde abajo en celular (bottom sheet) y se centra desde `sm`. */
+  variant?: 'center' | 'bottom';
   'aria-label'?: string;
 }
 
-export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children, className, ...rest }) => {
+export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children, className, variant = 'center', ...rest }) => {
   const panelRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -39,7 +41,12 @@ export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children, cl
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" {...rest}>
+    <div
+      className={cn(
+        'fixed inset-0 z-50 flex justify-center',
+        variant === 'bottom' ? 'items-end sm:items-center sm:p-4' : 'items-center p-4'
+      )}
+      role="dialog" aria-modal="true" {...rest}>
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
@@ -49,6 +56,7 @@ export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children, cl
         ref={panelRef}
         className={cn(
           'relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border bg-card p-6 shadow-xl',
+          variant === 'bottom' && 'rounded-b-none pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-b-xl',
           className
         )}
       >

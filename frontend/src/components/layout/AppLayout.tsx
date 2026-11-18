@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { LayoutChromeContext } from '@/context/LayoutChromeContext';
 import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +40,7 @@ interface NavItem {
 export const AppLayout: React.FC = () => {
   const { usuario, empresa, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [navInferiorOculta, setNavInferiorOculta] = useState(false);
   const location = useLocation();
 
   const navigation: NavItem[] = [
@@ -281,14 +283,18 @@ export const AppLayout: React.FC = () => {
 
         {/* Contenido principal */}
         <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8 max-w-7xl mx-auto w-full">
-          <Outlet />
+          <LayoutChromeContext.Provider value={{ setNavInferiorOculta }}>
+            <Outlet />
+          </LayoutChromeContext.Provider>
         </main>
       </div>
 
       {/* Navegación inferior (celular): las cuatro tareas diarias y el resto en el menú */}
       <nav
         aria-label="Navegación principal"
-        className="fixed bottom-0 inset-x-0 z-40 flex h-16 items-stretch border-t bg-background/95 backdrop-blur lg:hidden"
+        className={`fixed bottom-0 inset-x-0 z-40 h-16 items-stretch border-t bg-background/95 backdrop-blur lg:hidden ${
+          navInferiorOculta ? 'hidden' : 'flex'
+        }`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {[
