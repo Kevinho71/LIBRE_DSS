@@ -33,7 +33,9 @@ const envSchema = z.object({
   DSS_HABILITAR_SIMULACION: z.enum(['true', 'false']).default('false'),
 });
 
-const parsed = envSchema.safeParse(process.env);
+// Una variable declarada pero vacía (p. ej. `AWS_S3_BUCKET=` en una plantilla .env) equivale a no definirla.
+const entorno = Object.fromEntries(Object.entries(process.env).filter(([, valor]) => valor !== ''));
+const parsed = envSchema.safeParse(entorno);
 
 if (!parsed.success) {
   console.error('Configuración de variables de entorno inválida:', parsed.error.format());

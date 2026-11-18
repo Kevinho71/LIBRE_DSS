@@ -31,13 +31,58 @@ Entorno de pruebas con usuarios. La arquitectura objetivo del documento de grado
 4. **Dominio:** `Settings → Networking → Generate Domain`. Esa URL es la que se abre en el celular.
 5. **Fotos:** el navegador sube la imagen por URL prefirmada directo al bucket: configurar en el bucket CORS con `PUT` permitido desde el dominio de Railway y cabecera `Content-Type`.
 
+## Archivos de entorno
+
+| Archivo | Uso | Versionado |
+|:---|:---|:---|
+| `.env.production` (raíz) | Variables de producción; se copian a Railway (Raw Editor) o se pasan con `--env-file` | No (`.gitignore`) |
+| `.env.example` (raíz) | Plantilla sin secretos | Sí |
+| `backend/.env.development`, `frontend/.env.development` | Solo desarrollo local | No |
+
+Las variables vacías (`AWS_S3_BUCKET=`) se tratan como no definidas.
+
+## Credenciales de AWS (fotos del cuaderno)
+
+Solo se necesitan para subir fotos (S3 con URLs prefirmadas). Sin ellas el resto del sistema funciona.
+
+1. **Cuenta:** crear o abrir una cuenta en <https://aws.amazon.com> (pide tarjeta de verificación). Revisar en *Billing* qué créditos o capa gratuita aplican a la cuenta.
+2. **Bucket:** consola → S3 → *Create bucket*; nombre único (p. ej. `libredss-recibos-prod`), región `us-east-2` (la misma de `AWS_REGION`), *Block all public access* activado. Ese nombre va en `AWS_S3_BUCKET`.
+3. **CORS del bucket** (pestaña *Permissions → CORS*), con el dominio de Railway:
+
+   ```json
+   [{
+     "AllowedOrigins": ["https://TU-APP.up.railway.app"],
+     "AllowedMethods": ["PUT", "GET"],
+     "AllowedHeaders": ["*"],
+     "ExposeHeaders": ["ETag"],
+     "MaxAgeSeconds": 3000
+   }]
+   ```
+
+4. **Usuario IAM con permisos mínimos:** consola → IAM → *Policies* → *Create policy* (JSON):
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Action": ["s3:PutObject", "s3:GetObject"],
+       "Resource": "arn:aws:s3:::libredss-recibos-prod/recibos/*"
+     }]
+   }
+   ```
+
+   Luego IAM → *Users* → *Create user* (`libredss-railway`, sin acceso a la consola) → adjuntar esa política.
+5. **Claves de acceso:** el usuario → *Security credentials* → *Create access key* → caso de uso *Application running outside AWS*. Se muestran **una sola vez**: copiar *Access key ID* a `AWS_ACCESS_KEY_ID` y *Secret access key* a `AWS_SECRET_ACCESS_KEY`.
+6. No usar las claves de la cuenta raíz ni subirlas a git.
+
+Alternativa sin AWS: Cloudflare R2 (S3-compatible, nivel gratuito). Crear el bucket y un *API token* con permiso de lectura y escritura sobre ese bucket, y definir `S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, `AWS_REGION=auto`, más el *Access Key ID* y *Secret* del token en las variables `AWS_*`.
+
 ## Probar en local la imagen
 
 ```bash
 docker build -t libredss:local .
-docker run --rm -p 3001:3001 \
-  -e DATABASE_URL=postgresql://... -e JWT_SECRET=un-secreto-largo-de-prueba \
-  libredss:local
+docker run --rm -p 3001:3001 --env-file .env.production libredss:local
 # http://localhost:3001  (PWA)   http://localhost:3001/health  (API)
 ```
 
