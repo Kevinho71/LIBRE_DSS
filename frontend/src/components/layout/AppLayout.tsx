@@ -280,10 +280,48 @@ export const AppLayout: React.FC = () => {
         )}
 
         {/* Contenido principal */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8 max-w-7xl mx-auto w-full">
           <Outlet />
         </main>
       </div>
+
+      {/* Navegación inferior (celular): las cuatro tareas diarias y el resto en el menú */}
+      <nav
+        aria-label="Navegación principal"
+        className="fixed bottom-0 inset-x-0 z-40 flex h-16 items-stretch border-t bg-background/95 backdrop-blur lg:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {[
+          { name: 'Inicio', href: ROUTES.dashboard, icon: LayoutDashboard },
+          { name: 'Vender', href: ROUTES.venta, icon: ShoppingCart },
+          { name: 'Qué pedir', href: ROUTES.alertas, icon: BellRing },
+          { name: 'Productos', href: ROUTES.catalogo, icon: Package },
+        ].map((item) => {
+          const Icon = item.icon;
+          const activo = location.pathname === item.href;
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              aria-current={activo ? 'page' : undefined}
+              className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${
+                activo ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+              {item.name}
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground"
+        >
+          <Menu className="h-5 w-5" />
+          Más
+        </button>
+      </nav>
 
       {/* Footer legal */}
       <footer className="border-t bg-card py-4 px-6 text-center text-xs text-muted-foreground">

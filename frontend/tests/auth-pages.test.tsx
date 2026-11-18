@@ -102,9 +102,6 @@ describe('Auth Pages & Route Guards Tests', () => {
       fireEvent.change(screen.getByLabelText(/^contraseña/i), {
         target: { value: 'Password123!' },
       });
-      fireEvent.change(screen.getByLabelText(/confirmar contraseña/i), {
-        target: { value: 'Password123!' },
-      });
 
       // No aceptamos términos y enviamos
       fireEvent.click(screen.getByRole('button', { name: /crear cuenta y comenzar/i }));

@@ -90,6 +90,7 @@ export const ReceiptReviewPage: React.FC = () => {
   const { usuario } = useAuth();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
+  const camaraRef = useRef<HTMLInputElement>(null);
 
   const [fase, setFase] = useState<Fase>('seleccion');
   const [estado, setEstado] = useState<EstadoAnalisis>('idle');
@@ -169,6 +170,7 @@ export const ReceiptReviewPage: React.FC = () => {
     setConfirmacion(null);
     setFase('seleccion');
     if (inputRef.current) inputRef.current.value = '';
+    if (camaraRef.current) camaraRef.current.value = '';
   };
 
   const actualizarFila = (key: string, patch: Partial<FilaIngesta>) => {
@@ -307,6 +309,24 @@ export const ReceiptReviewPage: React.FC = () => {
               {analizando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
               {fase === 'revision' ? 'Recibo cargado' : 'Adjuntar recibo'}
             </Button>
+            <Button
+              type="button"
+              disabled={analizando || fase === 'revision'}
+              onClick={() => camaraRef.current?.click()}
+            >
+              <Camera className="h-4 w-4" />
+              Tomar foto
+            </Button>
+            {/* capture="environment" abre directamente la cámara trasera del celular */}
+            <input
+              ref={camaraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => void seleccionarArchivo(e.target.files?.[0])}
+              aria-label="Tomar foto del cuaderno o recibo"
+            />
             {fileName && <span className="text-xs text-muted-foreground truncate max-w-[220px]">{fileName}</span>}
             <input
               ref={inputRef}

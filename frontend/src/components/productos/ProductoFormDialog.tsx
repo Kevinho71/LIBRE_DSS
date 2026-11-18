@@ -149,7 +149,7 @@ export const ProductoFormDialog: React.FC<ProductoFormDialogProps> = ({ open, on
             {esEdicion ? 'Editar producto' : 'Nuevo producto'}
           </DialogTitle>
           <DialogDescription>
-            Los parámetros logísticos alimentan el cálculo de EOQ/ROP del motor DSS.
+            Con nombre, precio, costo y stock basta: el sistema usa valores por defecto para el cálculo de EOQ/ROP.
           </DialogDescription>
         </DialogHeader>
 
@@ -162,121 +162,65 @@ export const ProductoFormDialog: React.FC<ProductoFormDialogProps> = ({ open, on
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="prod-nombre">Nombre *</Label>
-            <Input id="prod-nombre" value={form.nombre} maxLength={255} onChange={(e) => set('nombre', e.target.value)} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="prod-sku">SKU</Label>
-            <Input id="prod-sku" value={form.sku} maxLength={100} onChange={(e) => set('sku', e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="prod-unidad">Unidad de venta</Label>
-            <Input id="prod-unidad" value={form.unidadMedida} onChange={(e) => set('unidadMedida', e.target.value)} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="prod-unidad-compra">Unidad de compra (CB-04)</Label>
-            <Input
-              id="prod-unidad-compra"
-              placeholder="p. ej. caja"
-              value={form.unidadCompra}
-              onChange={(e) => set('unidadCompra', e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="prod-factor">Factor de conversión (CB-04)</Label>
-            <Input
-              id="prod-factor"
-              type="number"
-              min={0}
-              step="any"
-              value={form.factorConversion}
-              onChange={(e) => set('factorConversion', e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="prod-costo">Costo unitario (Bs) *</Label>
-            <Input
-              id="prod-costo"
-              type="number"
-              min={0}
-              step="any"
-              value={form.costoUnitario}
-              onChange={(e) => set('costoUnitario', e.target.value)}
-            />
+            <Input id="prod-nombre" value={form.nombre} maxLength={255} autoComplete="off" onChange={(e) => set('nombre', e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="prod-precio">Precio de venta (Bs) *</Label>
-            <Input
-              id="prod-precio"
-              type="number"
-              min={0}
-              step="any"
-              value={form.precioVenta}
-              onChange={(e) => set('precioVenta', e.target.value)}
-            />
+            <Input id="prod-precio" type="number" inputMode="decimal" min={0} step="any"  value={form.precioVenta} onChange={(e) => set('precioVenta', e.target.value)} />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="prod-costo">Costo unitario (Bs) *</Label>
+            <Input id="prod-costo" type="number" inputMode="decimal" min={0} step="any"  value={form.costoUnitario} onChange={(e) => set('costoUnitario', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="prod-stock">Stock actual</Label>
+            <Input id="prod-stock" type="number" inputMode="decimal" min={0} step="any"  value={form.stockActual} onChange={(e) => set('stockActual', e.target.value)} />
+          </div>
+        </div>
 
+        <details className="mt-4 rounded-md border bg-muted/30 p-3">
+          <summary className="cursor-pointer select-none text-sm font-medium text-foreground">
+            Más opciones (SKU, unidades y parámetros logísticos)
+          </summary>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Valores por defecto listos para usar: costo de pedido 50 Bs, tasa de mantenimiento 0,2 y tiempo de entrega 3 días.
+            Puedes ajustarlos después.
+          </p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="prod-sku">SKU (opcional)</Label>
+            <Input id="prod-sku"  maxLength={100} value={form.sku} onChange={(e) => set('sku', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="prod-unidad">Unidad de venta</Label>
+            <Input id="prod-unidad"   value={form.unidadMedida} onChange={(e) => set('unidadMedida', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="prod-unidad-compra">Unidad de compra (CB-04)</Label>
+            <Input id="prod-unidad-compra"  placeholder="p. ej. caja" value={form.unidadCompra} onChange={(e) => set('unidadCompra', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="prod-factor">Factor de conversión (CB-04)</Label>
+            <Input id="prod-factor" type="number" inputMode="decimal" min={0} step="any"  value={form.factorConversion} onChange={(e) => set('factorConversion', e.target.value)} />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="prod-costo-pedido">Costo de pedido S (Bs)</Label>
-            <Input
-              id="prod-costo-pedido"
-              type="number"
-              min={0}
-              step="any"
-              value={form.costoPedido}
-              onChange={(e) => set('costoPedido', e.target.value)}
-            />
+            <Input id="prod-costo-pedido" type="number" inputMode="decimal" min={0} step="any"  value={form.costoPedido} onChange={(e) => set('costoPedido', e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="prod-tasa">Tasa de mantenimiento i (fracción)</Label>
-            <Input
-              id="prod-tasa"
-              type="number"
-              min={0}
-              step="any"
-              value={form.tasaMantenimiento}
-              onChange={(e) => set('tasaMantenimiento', e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="prod-stock">Stock actual</Label>
-            <Input
-              id="prod-stock"
-              type="number"
-              min={0}
-              step="any"
-              value={form.stockActual}
-              onChange={(e) => set('stockActual', e.target.value)}
-            />
+            <Input id="prod-tasa" type="number" inputMode="decimal" min={0} step="any"  value={form.tasaMantenimiento} onChange={(e) => set('tasaMantenimiento', e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="prod-stock-min">Stock mínimo manual (arranque en frío)</Label>
-            <Input
-              id="prod-stock-min"
-              type="number"
-              min={0}
-              step="any"
-              placeholder="opcional"
-              value={form.stockMinimoManual}
-              onChange={(e) => set('stockMinimoManual', e.target.value)}
-            />
+            <Input id="prod-stock-min" type="number" inputMode="decimal" min={0} step="any" placeholder="opcional" value={form.stockMinimoManual} onChange={(e) => set('stockMinimoManual', e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="prod-stock-max">Stock máximo manual (arranque en frío)</Label>
-            <Input
-              id="prod-stock-max"
-              type="number"
-              min={0}
-              step="any"
-              placeholder="opcional"
-              value={form.stockMaximoManual}
-              onChange={(e) => set('stockMaximoManual', e.target.value)}
-            />
+            <Input id="prod-stock-max" type="number" inputMode="decimal" min={0} step="any" placeholder="opcional" value={form.stockMaximoManual} onChange={(e) => set('stockMaximoManual', e.target.value)} />
           </div>
-        </div>
+          </div>
+        </details>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={enviando}>
