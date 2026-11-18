@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { ProductAutocomplete } from '@/components/transacciones/ProductAutocomplete';
 import { ingestaApi } from '@/api/ingesta.api';
 import { storageApi } from '@/api/storage.api';
+import { productosApi } from '@/api/productos.api';
 import { ApiError } from '@/api/client';
 import { comprimirImagen, esImagenValida, MAX_TAMANO_ENTRADA_BYTES, type FotoComprimida } from '@/lib/imageCompression';
 import { generarUuid } from '@/lib/idempotency';
@@ -40,6 +41,14 @@ const ESTADO_LABEL: Record<Exclude<EstadoAnalisis, 'idle'>, string> = {
   analizando: 'Extrayendo productos con IA…',
 };
 
+/** Datos para dar de alta en el catálogo un ítem que la IA no logró emparejar. */
+interface ProductoNuevoDraft {
+  nombre: string;
+  /** Stock disponible ANTES de registrar esta venta (la venta lo descuenta). */
+  stock: string;
+  costo: string;
+}
+
 interface FilaIngesta {
   key: string;
   descripcion: string;
@@ -50,6 +59,7 @@ interface FilaIngesta {
   producto: ProductoBusqueda | null;
   cantidad: string;
   precioVenta: string;
+  nuevo: ProductoNuevoDraft | null;
 }
 
 function productoDesdeItem(item: ItemMatcheado): ProductoBusqueda | null {
@@ -78,6 +88,7 @@ function filaDesdeItem(item: ItemMatcheado): FilaIngesta {
     producto: productoDesdeItem(item),
     cantidad: item.cantidad ? String(item.cantidad) : '',
     precioVenta: item.precioUnitario != null ? String(item.precioUnitario) : '',
+    nuevo: null,
   };
 }
 
@@ -101,6 +112,7 @@ export const ReceiptReviewPage: React.FC = () => {
   const [filas, setFilas] = useState<FilaIngesta[]>([]);
   const [errores, setErrores] = useState<string[]>([]);
   const [confirmacion, setConfirmacion] = useState<ResultadoConfirmacion | null>(null);
+  const [creandoProductos, setCreandoProductos] = useState(false);
 
   const analizar = useMutation({
     mutationFn: async (comprimida: FotoComprimida) => {
@@ -194,30 +206,43 @@ export const ReceiptReviewPage: React.FC = () => {
         producto: null,
         cantidad: '1',
         precioVenta: '',
+        nuevo: null,
       },
     ]);
   };
 
+  const iniciarProductoNuevo = (fila: FilaIngesta) => {
+    actualizarFila(fila.key, {
+      producto: null,
+      nuevo: { nombre: fila.descripcion.trim(), stock: '', costo: '' },
+    });
+  };
+
+  const actualizarNuevo = (key: string, patch: Partial<ProductoNuevoDraft>) => {
+    setFilas((prev) => prev.map((f) => (f.key === key && f.nuevo ? { ...f, nuevo: { ...f.nuevo, ...patch } } : f)));
+  };
+
   const resumenCoincidencias = useMemo(() => {
     const conCoincidencia = filas.filter((f) => f.producto && (f.similitud ?? 0) >= UMBRAL_COINCIDENCIA).length;
-    const dudosos = filas.filter((f) => !f.producto || (f.similitud ?? 0) < UMBRAL_COINCIDENCIA).length;
+    const dudosos = filas.filter((f) => !f.nuevo && (!f.producto || (f.similitud ?? 0) < UMBRAL_COINCIDENCIA)).length;
     return { total: filas.length, conCoincidencia, dudosos };
   }, [filas]);
 
-  const validarYConfirmar = () => {
+  const validarYConfirmar = async () => {
     const nuevosErrores: string[] = [];
     if (!fechaEvento) {
       nuevosErrores.push('Debes indicar la fecha del recibo antes de guardar.');
     }
 
-    const items: { productoId: string; cantidad: number; precioVenta?: number }[] = [];
+    // Cada entrada conserva la fila de origen para completar el productoId de los productos nuevos.
+    const pendientes: { fila: FilaIngesta; cantidad: number; precio?: number }[] = [];
     filas.forEach((fila, indice) => {
       const cantidad = Number(fila.cantidad);
-      if (fila.descripcion.trim() === '' && !fila.producto) {
+      if (fila.descripcion.trim() === '' && !fila.producto && !fila.nuevo) {
         return; // fila vacía añadida manualmente y sin usar
       }
-      if (!fila.producto) {
-        nuevosErrores.push(`Ítem ${indice + 1}: asigna un producto del catálogo.`);
+      if (!fila.producto && !fila.nuevo) {
+        nuevosErrores.push(`Ítem ${indice + 1}: asigna un producto del catálogo o agrégalo como nuevo.`);
         return;
       }
       if (!Number.isFinite(cantidad) || cantidad <= 0) {
@@ -229,17 +254,80 @@ export const ReceiptReviewPage: React.FC = () => {
         nuevosErrores.push(`Ítem ${indice + 1}: el precio de venta no puede ser negativo.`);
         return;
       }
-      items.push({ productoId: fila.producto.id, cantidad, ...(precio !== undefined ? { precioVenta: precio } : {}) });
+      if (fila.nuevo) {
+        const costo = Number(fila.nuevo.costo);
+        const stock = Number(fila.nuevo.stock);
+        if (fila.nuevo.nombre.trim().length < 2) {
+          nuevosErrores.push(`Ítem ${indice + 1}: el nombre del producto nuevo debe tener al menos 2 caracteres.`);
+          return;
+        }
+        if (precio === undefined || precio <= 0) {
+          nuevosErrores.push(`Ítem ${indice + 1}: confirma el precio de venta (mayor a 0) del producto nuevo.`);
+          return;
+        }
+        if (fila.nuevo.costo.trim() === '' || !Number.isFinite(costo) || costo <= 0) {
+          nuevosErrores.push(`Ítem ${indice + 1}: indica el costo de compra (mayor a 0) del producto nuevo.`);
+          return;
+        }
+        if (fila.nuevo.stock.trim() === '' || !Number.isFinite(stock) || stock < 0) {
+          nuevosErrores.push(`Ítem ${indice + 1}: indica el stock disponible (0 o más) del producto nuevo.`);
+          return;
+        }
+        if (stock < cantidad) {
+          nuevosErrores.push(
+            `Ítem ${indice + 1}: el stock (${stock}) no alcanza para vender ${cantidad}. Indica el stock disponible antes de esta venta.`,
+          );
+          return;
+        }
+      }
+      pendientes.push({ fila, cantidad, ...(precio !== undefined ? { precio } : {}) });
     });
 
-    if (items.length === 0 && nuevosErrores.length === 0) {
+    if (pendientes.length === 0 && nuevosErrores.length === 0) {
       nuevosErrores.push('Agrega al menos un ítem para confirmar la ingesta.');
     }
 
     setErrores(nuevosErrores);
     if (nuevosErrores.length > 0) return;
 
-    confirmar.mutate({ fechaEvento, items });
+    // Los productos nuevos se crean recién ahora (descartar la ingesta no deja basura en el catálogo).
+    // Cada uno queda asignado a su fila apenas se crea: si algo falla y se reintenta, no se duplica.
+    setCreandoProductos(true);
+    try {
+      const items: { productoId: string; cantidad: number; precioVenta?: number }[] = [];
+      for (const { fila, cantidad, precio } of pendientes) {
+        let productoId = fila.producto?.id;
+        if (!productoId && fila.nuevo) {
+          const creado = await productosApi.crear({
+            nombre: fila.nuevo.nombre.trim(),
+            costoUnitario: Number(fila.nuevo.costo),
+            precioVenta: precio ?? 0,
+            stockActual: Number(fila.nuevo.stock),
+            origenDato: 'manual',
+          });
+          productoId = creado.id;
+          const asignado: ProductoBusqueda = {
+            id: creado.id,
+            sku: creado.sku,
+            nombre: creado.nombre,
+            precioVenta: creado.precioVenta,
+            costoUnitario: creado.costoUnitario,
+            stockActual: creado.stockActual,
+            unidadMedida: creado.unidadMedida,
+            factorConversion: creado.factorConversion,
+            unidadCompra: creado.unidadCompra,
+          };
+          actualizarFila(fila.key, { producto: asignado, nuevo: null, similitud: null, sugeridoNombre: null });
+          void queryClient.invalidateQueries({ queryKey: ['productos'] });
+        }
+        items.push({ productoId: productoId!, cantidad, ...(precio !== undefined ? { precioVenta: precio } : {}) });
+      }
+      confirmar.mutate({ fechaEvento, items });
+    } catch (err) {
+      setErrores([err instanceof ApiError ? err.message : 'No se pudo crear un producto nuevo. Intenta nuevamente.']);
+    } finally {
+      setCreandoProductos(false);
+    }
   };
 
   const analizando = estado !== 'idle';
@@ -415,6 +503,11 @@ export const ReceiptReviewPage: React.FC = () => {
                               )}
                               {fila.similitud != null ? `Similitud ${(fila.similitud * 100).toFixed(0)}%` : 'Coincidencia'}
                             </Badge>
+                          ) : fila.nuevo ? (
+                            <Badge variant="freemium" className="gap-1">
+                              <Plus className="h-3 w-3" />
+                              Producto nuevo
+                            </Badge>
                           ) : (
                             <Badge variant="destructive" className="gap-1">
                               <AlertTriangle className="h-3 w-3" />
@@ -440,14 +533,77 @@ export const ReceiptReviewPage: React.FC = () => {
                         <ProductAutocomplete
                           id={`ingesta-producto-${fila.key}`}
                           value={fila.producto}
-                          onChange={(producto) => actualizarFila(fila.key, { producto })}
+                          onChange={(producto) => actualizarFila(fila.key, { producto, nuevo: null })}
                           detalleSeleccion={
                             fila.sugeridoNombre
                               ? `Coincidencia IA: ${fila.sugeridoNombre}${fila.similitud != null ? ` (${(fila.similitud * 100).toFixed(0)}%)` : ''}`
                               : 'Producto asignado manualmente'
                           }
                         />
+                        {!fila.producto && !fila.nuevo && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => iniciarProductoNuevo(fila)}
+                          >
+                            <Plus className="h-4 w-4" />
+                            No está en el catálogo: agregarlo como producto nuevo
+                          </Button>
+                        )}
                       </div>
+
+                      {fila.nuevo && (
+                        <div className="space-y-3 rounded-md border border-dashed bg-muted/30 p-3 sm:col-span-2">
+                          <p className="text-xs text-muted-foreground">
+                            Se creará en el catálogo al confirmar. Revisa el precio de venta abajo y completa costo y stock.
+                          </p>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5 sm:col-span-2">
+                              <Label htmlFor={`ingesta-nuevo-nombre-${fila.key}`}>Nombre del producto *</Label>
+                              <Input
+                                id={`ingesta-nuevo-nombre-${fila.key}`}
+                                value={fila.nuevo.nombre}
+                                maxLength={255}
+                                autoComplete="off"
+                                onChange={(e) => actualizarNuevo(fila.key, { nombre: e.target.value })}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor={`ingesta-nuevo-costo-${fila.key}`}>Costo de compra (Bs) *</Label>
+                              <Input
+                                id={`ingesta-nuevo-costo-${fila.key}`}
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                step="any"
+                                value={fila.nuevo.costo}
+                                onChange={(e) => actualizarNuevo(fila.key, { costo: e.target.value })}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor={`ingesta-nuevo-stock-${fila.key}`}>Stock disponible antes de esta venta *</Label>
+                              <Input
+                                id={`ingesta-nuevo-stock-${fila.key}`}
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                step="any"
+                                value={fila.nuevo.stock}
+                                onChange={(e) => actualizarNuevo(fila.key, { stock: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => actualizarFila(fila.key, { nuevo: null })}
+                          >
+                            Cancelar producto nuevo
+                          </Button>
+                        </div>
+                      )}
                       <div className="space-y-1.5">
                         <Label htmlFor={`ingesta-cantidad-${fila.key}`}>Cantidad</Label>
                         <Input
@@ -460,7 +616,7 @@ export const ReceiptReviewPage: React.FC = () => {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor={`ingesta-precio-${fila.key}`}>Precio de venta (opcional)</Label>
+                        <Label htmlFor={`ingesta-precio-${fila.key}`}>{fila.nuevo ? 'Precio de venta (Bs) *' : 'Precio de venta (opcional)'}</Label>
                         <Input
                           id={`ingesta-precio-${fila.key}`}
                           type="number"
@@ -513,11 +669,11 @@ export const ReceiptReviewPage: React.FC = () => {
             <div className="flex justify-end">
               <Button
                 type="button"
-                onClick={validarYConfirmar}
-                disabled={confirmar.isPending || !usuario}
+                onClick={() => void validarYConfirmar()}
+                disabled={confirmar.isPending || creandoProductos || !usuario}
                 aria-label="Confirmar y guardar ingesta"
               >
-                {confirmar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                {confirmar.isPending || creandoProductos ?<Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 Confirmar y guardar
               </Button>
             </div>
