@@ -26,6 +26,10 @@ vi.mock('@/api/storage.api', () => ({
   getBaseUrl: () => 'http://localhost:3001',
 }));
 
+vi.mock('@/api/productos.api', () => ({
+  productosApi: { crear: vi.fn() },
+}));
+
 vi.mock('@/lib/imageCompression', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/imageCompression')>();
   return {
@@ -44,7 +48,9 @@ vi.mock('@/lib/imageCompression', async (importOriginal) => {
 
 import { ingestaApi } from '@/api/ingesta.api';
 import { storageApi } from '@/api/storage.api';
+import { productosApi } from '@/api/productos.api';
 
+const mockCrearProducto = vi.mocked(productosApi.crear);
 const mockExtraer = vi.mocked(ingestaApi.extraer);
 const mockConfirmar = vi.mocked(ingestaApi.confirmar);
 const mockPresigned = vi.mocked(storageApi.solicitarPresignedUrl);
@@ -76,6 +82,7 @@ describe('ReceiptReviewPage (HU-37)', () => {
     mockConfirmar.mockReset();
     mockPresigned.mockReset();
     mockSubir.mockReset();
+    mockCrearProducto.mockReset();
 
     mockPresigned.mockResolvedValue({ uploadUrl: 'https://s3/upload', key: 'recibos/e1/r.jpg', expiresInSeconds: 300 });
     mockSubir.mockResolvedValue(undefined);
@@ -143,5 +150,50 @@ describe('ReceiptReviewPage (HU-37)', () => {
 
     await waitFor(() => expect(screen.queryByText(/revisión de la extracción/i)).not.toBeInTheDocument());
     expect(mockConfirmar).not.toHaveBeenCalled();
+  });
+
+  it('permite agregar al catálogo un ítem sin coincidencia con costo y stock, y lo vende', async () => {
+    mockExtraer.mockResolvedValue({
+      ingestaId: 'ing-2',
+      estado: 'pendiente',
+      fechaSugerida: '2026-02-01',
+      items: [
+        { descripcion: 'cinta masking', cantidad: 2, precioUnitario: 5, productoId: null, nombreProducto: null, sku: null, similitud: null },
+      ],
+    });
+    mockCrearProducto.mockResolvedValue({
+      id: 'p-nuevo', sku: null, nombre: 'cinta masking', precioVenta: 5, costoUnitario: 3, stockActual: 10,
+      unidadMedida: 'unidad', factorConversion: 1, unidadCompra: null,
+    } as never);
+
+    renderPage();
+    adjuntarRecibo();
+    await waitFor(() => expect(screen.getByText(/revisión de la extracción/i)).toBeInTheDocument(), { timeout: 3000 });
+
+    // Sin producto ni alta, no se puede confirmar.
+    fireEvent.click(screen.getByRole('button', { name: /confirmar y guardar ingesta/i }));
+    await waitFor(() => expect(screen.getByText(/agrégalo como nuevo/i)).toBeInTheDocument());
+    expect(mockCrearProducto).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /agregarlo como producto nuevo/i }));
+    fireEvent.change(screen.getByLabelText(/costo de compra/i), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(/stock disponible/i), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar y guardar ingesta/i }));
+
+    await waitFor(() =>
+      expect(mockCrearProducto).toHaveBeenCalledWith({
+        nombre: 'cinta masking',
+        costoUnitario: 3,
+        precioVenta: 5,
+        stockActual: 10,
+        origenDato: 'manual',
+      })
+    );
+    await waitFor(() =>
+      expect(mockConfirmar).toHaveBeenCalledWith('ing-2', {
+        fechaEvento: '2026-02-01',
+        items: [{ productoId: 'p-nuevo', cantidad: 2, precioVenta: 5 }],
+      })
+    );
   });
 });
