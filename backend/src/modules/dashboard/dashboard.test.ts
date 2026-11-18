@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'crypto';
-import { dashboardService } from './dashboard.service';
+import { dashboardService, resumirVentas, fechaEnBolivia } from './dashboard.service';
 import { dashboardRepository } from './dashboard.repository';
 import { PosicionAlerta } from './dashboard.repository';
 
@@ -28,6 +28,7 @@ describe('Dashboard Service — KPIs (Sprint 6 / LIB-7 / HU-26)', () => {
       { productoId: 'c', stockActual: 0, enTransito: 0, ropCalculado: null, stockSeguridadCalculado: null, costoUnitario: 1, precioVenta: 2 },
     ];
     vi.spyOn(dashboardRepository, 'obtenerPosicionesAlerta').mockResolvedValue(posiciones);
+    vi.spyOn(dashboardRepository, 'obtenerVentasPorFecha').mockResolvedValue([]);
 
     const kpis = await dashboardService.obtenerKpis(empresaId);
 
@@ -52,11 +53,61 @@ describe('Dashboard Service — KPIs (Sprint 6 / LIB-7 / HU-26)', () => {
       valorEstimado: 0,
     });
     vi.spyOn(dashboardRepository, 'obtenerPosicionesAlerta').mockResolvedValue([]);
+    vi.spyOn(dashboardRepository, 'obtenerVentasPorFecha').mockResolvedValue([]);
 
     const kpis = await dashboardService.obtenerKpis(empresaId);
 
     expect(kpis.limiteSku).toBeNull();
     expect(kpis.skusEnAlerta).toBe(0);
     expect(kpis.ahorroEstimadoProyectado).toBe(0);
+  });
+});
+
+describe('Dashboard: ventas de hoy, del mes y de la semana', () => {
+  it('resume hoy, el mes y los últimos 7 días (con ceros en días sin ventas)', () => {
+    const r = resumirVentas(
+      [
+        { fecha: '2026-11-18', monto: 90, unidades: 1, notas: 1 },
+        { fecha: '2026-11-17', monto: 250.5, unidades: 4, notas: 2 },
+        { fecha: '2026-11-02', monto: 100, unidades: 2, notas: 1 },
+        { fecha: '2026-10-31', monto: 999, unidades: 9, notas: 9 }, // mes anterior: no cuenta
+      ],
+      '2026-11-18'
+    );
+
+    expect(r.hoy).toEqual({ monto: 90, unidades: 1, notas: 1 });
+    expect(r.mes).toEqual({ monto: 440.5, unidades: 7, notas: 4 });
+    expect(r.ultimos7Dias).toHaveLength(7);
+    expect(r.ultimos7Dias[0]).toEqual({ fecha: '2026-11-12', monto: 0 });
+    expect(r.ultimos7Dias[5]).toEqual({ fecha: '2026-11-17', monto: 250.5 });
+    expect(r.ultimos7Dias[6]).toEqual({ fecha: '2026-11-18', monto: 90 });
+  });
+
+  it('sin ventas devuelve ceros', () => {
+    const r = resumirVentas([], '2026-11-18');
+    expect(r.hoy).toEqual({ monto: 0, unidades: 0, notas: 0 });
+    expect(r.mes.monto).toBe(0);
+    expect(r.ultimos7Dias.every((d) => d.monto === 0)).toBe(true);
+  });
+
+  it('usa la fecha de Bolivia (UTC-4): las 23:00 locales siguen siendo el mismo día', () => {
+    // 2026-11-19T03:00Z = 2026-11-18 23:00 en La Paz
+    expect(fechaEnBolivia(new Date('2026-11-19T03:00:00Z'))).toBe('2026-11-18');
+  });
+
+  it('obtenerKpis incluye las ventas calculadas desde el repositorio', async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(dashboardRepository, 'obtenerPlan').mockResolvedValue('pago');
+    vi.spyOn(dashboardRepository, 'obtenerResumenProductos').mockResolvedValue({ productosActivos: 1, valorInventario: 10 });
+    vi.spyOn(dashboardRepository, 'obtenerMermasMes').mockResolvedValue({ cantidad: 0, valorEstimado: 0 });
+    vi.spyOn(dashboardRepository, 'obtenerPosicionesAlerta').mockResolvedValue([]);
+    const hoy = fechaEnBolivia(new Date());
+    vi.spyOn(dashboardRepository, 'obtenerVentasPorFecha').mockResolvedValue([
+      { fecha: hoy, monto: 90, unidades: 1, notas: 1 },
+    ]);
+
+    const kpis = await dashboardService.obtenerKpis(crypto.randomUUID());
+    expect(kpis.ventas.hoy.monto).toBe(90);
+    expect(kpis.ventas.ultimos7Dias[6].monto).toBe(90);
   });
 });

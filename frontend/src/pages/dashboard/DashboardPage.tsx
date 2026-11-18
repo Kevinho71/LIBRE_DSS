@@ -5,10 +5,12 @@ import {
   ArrowUpRight,
   BellRing,
   Building2,
+  CalendarDays,
   Loader2,
   Package,
   PiggyBank,
   ShieldCheck,
+  ShoppingCart,
   TrendingDown,
   Wallet,
 } from 'lucide-react';
@@ -74,6 +76,32 @@ export const DashboardPage: React.FC = () => {
         </div>
       ) : (
         <>
+          {/* Ventas: lo primero que el dueño quiere ver al abrir la aplicación */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <KpiCard
+              titulo="Ventas de hoy"
+              valor={formatCurrency(kpis.ventas.hoy.monto)}
+              icono={ShoppingCart}
+              tono="success"
+              descripcion={
+                kpis.ventas.hoy.notas > 0
+                  ? `${kpis.ventas.hoy.notas} venta(s) · ${kpis.ventas.hoy.unidades} unidad(es)`
+                  : 'Aún sin ventas hoy'
+              }
+            />
+            <KpiCard
+              titulo="Ventas del mes"
+              valor={formatCurrency(kpis.ventas.mes.monto)}
+              icono={CalendarDays}
+              tono="primary"
+              descripcion={
+                kpis.ventas.mes.notas > 0
+                  ? `${kpis.ventas.mes.notas} venta(s) · ${kpis.ventas.mes.unidades} unidad(es)`
+                  : 'Sin ventas este mes'
+              }
+            />
+          </div>
+
           {/* KPIs ejecutivos (HU-26) */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <KpiCard
@@ -123,6 +151,7 @@ export const DashboardPage: React.FC = () => {
           >
             <div className="grid gap-6 lg:grid-cols-2">
               <DashboardCharts
+                ventas7Dias={kpis.ventas.ultimos7Dias}
                 valorInventario={kpis.valorInventario}
                 ahorroEstimado={kpis.ahorroEstimadoProyectado}
                 mermasValor={kpis.mermasMes.valorEstimado}

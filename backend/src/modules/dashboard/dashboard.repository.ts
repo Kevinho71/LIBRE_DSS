@@ -13,6 +13,13 @@ export interface MermasMesResumen {
   valorEstimado: number;
 }
 
+export interface VentaPorFecha {
+  fecha: string;
+  monto: number;
+  unidades: number;
+  notas: number;
+}
+
 export interface PosicionAlerta {
   productoId: string;
   stockActual: number;
@@ -70,6 +77,33 @@ export const dashboardRepository = {
       cantidad: row != null ? Number(row.cantidad) : 0,
       valorEstimado: row != null ? Number(row.valorEstimado) : 0,
     };
+  },
+
+  /** Ventas (tipo venta) agrupadas por fecha del evento desde `desde` (YYYY-MM-DD, inclusive). */
+  async obtenerVentasPorFecha(empresaId: string, desde: string): Promise<VentaPorFecha[]> {
+    const rows = await db
+      .select({
+        fecha: transacciones.fechaEvento,
+        monto: sql<string>`COALESCE(SUM(${transacciones.cantidad} * ${transacciones.precioVentaHistorico}), 0)::numeric`,
+        unidades: sql<string>`COALESCE(SUM(${transacciones.cantidad}), 0)::numeric`,
+        notas: sql<number>`count(DISTINCT COALESCE(${transacciones.notaId}::text, ${transacciones.id}::text))::int`,
+      })
+      .from(transacciones)
+      .where(
+        and(
+          eq(transacciones.empresaId, empresaId),
+          eq(transacciones.tipo, 'venta'),
+          gte(transacciones.fechaEvento, desde)
+        )
+      )
+      .groupBy(transacciones.fechaEvento);
+
+    return rows.map((r) => ({
+      fecha: String(r.fecha),
+      monto: Number(r.monto),
+      unidades: Number(r.unidades),
+      notas: Number(r.notas),
+    }));
   },
 
   async obtenerPosicionesAlerta(empresaId: string): Promise<PosicionAlerta[]> {

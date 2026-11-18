@@ -59,6 +59,24 @@ export interface MermasMes {
   valorEstimado: number;
 }
 
+export interface ResumenVentas {
+  monto: number;
+  unidades: number;
+  notas: number;
+}
+
+export interface VentaDiaria {
+  fecha: string;
+  monto: number;
+}
+
+export interface VentasDashboard {
+  hoy: ResumenVentas;
+  mes: ResumenVentas;
+  /** Monto vendido por día, de más antiguo a más reciente (incluye días sin ventas). */
+  ultimos7Dias: VentaDiaria[];
+}
+
 export interface DashboardKpis {
   fecha: string;
   plan: string;
@@ -68,6 +86,7 @@ export interface DashboardKpis {
   skusEnAlerta: number;
   mermasMes: MermasMes;
   ahorroEstimadoProyectado: number;
+  ventas: VentasDashboard;
 }
 
 // ==========================================

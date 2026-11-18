@@ -1,10 +1,11 @@
 import { dashboardRepository, PosicionAlerta } from './dashboard.repository';
 import { calcularPosicionInventario, evaluarReorden } from '../../engine/inventoryPosition';
 import { round2 } from '../../engine/abcService';
-import { DashboardKpis, ReporteCostos, ResumenSkuReporteCostos } from './dashboard.types';
+import { DashboardKpis, ReporteCostos, ResumenSkuReporteCostos, VentasDashboard } from './dashboard.types';
 import { ReporteCostosQuery } from './dashboard.schema';
 import { NotFoundError, ValidationError } from '../../shared/errors/AppError';
 import { logger } from '../../shared/utils/logger';
+import { clock } from '../../shared/utils/clock';
 import { ejecutarRetrospectiva, ParametrosSerieRetrospectiva } from '../../engine/retrospective';
 
 export const LIMITE_SKUS_GRATUITO = 15;
@@ -24,6 +25,56 @@ function inicioMesActual(): string {
   return `${hoy.getFullYear()}-${mes}-01`;
 }
 
+const ZONA_HORARIA = 'America/La_Paz';
+
+/** Fecha calendario (YYYY-MM-DD) en Bolivia; el servidor corre en UTC y de noche ya sería mañana. */
+export function fechaEnBolivia(instante: Date): string {
+  return instante.toLocaleDateString('en-CA', { timeZone: ZONA_HORARIA });
+}
+
+function restarDias(fechaIso: string, dias: number): string {
+  const d = new Date(`${fechaIso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - dias);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Resume ventas de hoy, del mes y de los últimos 7 días a partir de ventas agrupadas por fecha. */
+export function resumirVentas(
+  porFecha: Array<{ fecha: string; monto: number; unidades: number; notas: number }>,
+  hoy: string
+): VentasDashboard {
+  const inicioMes = `${hoy.slice(0, 7)}-01`;
+  const hoyResumen = { monto: 0, unidades: 0, notas: 0 };
+  const mesResumen = { monto: 0, unidades: 0, notas: 0 };
+  const montoPorFecha = new Map<string, number>();
+
+  for (const v of porFecha) {
+    montoPorFecha.set(v.fecha, (montoPorFecha.get(v.fecha) ?? 0) + v.monto);
+    if (v.fecha >= inicioMes && v.fecha <= hoy) {
+      mesResumen.monto += v.monto;
+      mesResumen.unidades += v.unidades;
+      mesResumen.notas += v.notas;
+    }
+    if (v.fecha === hoy) {
+      hoyResumen.monto += v.monto;
+      hoyResumen.unidades += v.unidades;
+      hoyResumen.notas += v.notas;
+    }
+  }
+
+  const ultimos7Dias = Array.from({ length: 7 }, (_, i) => {
+    const fecha = restarDias(hoy, 6 - i);
+    return { fecha, monto: round2(montoPorFecha.get(fecha) ?? 0) };
+  });
+
+  const redondear = (r: { monto: number; unidades: number; notas: number }) => ({
+    monto: round2(r.monto),
+    unidades: round2(r.unidades),
+    notas: r.notas,
+  });
+  return { hoy: redondear(hoyResumen), mes: redondear(mesResumen), ultimos7Dias };
+}
+
 export const dashboardService = {
   async obtenerKpis(empresaId: string): Promise<DashboardKpis> {
     const plan = await dashboardRepository.obtenerPlan(empresaId);
@@ -32,6 +83,10 @@ export const dashboardService = {
     const posiciones = await dashboardRepository.obtenerPosicionesAlerta(empresaId);
 
     const enAlerta = posiciones.filter(esAlerta);
+
+    const hoy = fechaEnBolivia(clock.now());
+    const desdeVentas = [`${hoy.slice(0, 7)}-01`, restarDias(hoy, 6)].sort()[0];
+    const ventas = resumirVentas(await dashboardRepository.obtenerVentasPorFecha(empresaId, desdeVentas), hoy);
 
     // Ahorro estimado proyectado: margen unitario protegido por el stock de seguridad
     // de cada SKU en alerta, frente a una política empírica sin stock de seguridad.
@@ -53,6 +108,7 @@ export const dashboardService = {
         valorEstimado: round2(mermas.valorEstimado),
       },
       ahorroEstimadoProyectado: round2(ahorroEstimado),
+      ventas,
     };
   },
 
