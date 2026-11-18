@@ -8,6 +8,9 @@ export function getS3Client(): S3Client {
   if (!s3Client) {
     s3Client = new S3Client({
       region: env.AWS_REGION,
+      // Sin checksum CRC32 en la URL prefirmada: el navegador sube un cuerpo distinto al vacío
+      // y S3 rechazaría la subida (403) si la URL lo exigiera.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
       // Bucket S3-compatible (R2, Railway Bucket, MinIO): endpoint propio y URLs por ruta.
       ...(env.S3_ENDPOINT ? { endpoint: env.S3_ENDPOINT, forcePathStyle: true } : {}),
       credentials: {
