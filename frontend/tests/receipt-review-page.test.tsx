@@ -27,7 +27,7 @@ vi.mock('@/api/storage.api', () => ({
 }));
 
 vi.mock('@/api/productos.api', () => ({
-  productosApi: { crear: vi.fn() },
+  productosApi: { crear: vi.fn(), buscar: vi.fn() },
 }));
 
 vi.mock('@/lib/imageCompression', async (importOriginal) => {
@@ -51,6 +51,7 @@ import { storageApi } from '@/api/storage.api';
 import { productosApi } from '@/api/productos.api';
 
 const mockCrearProducto = vi.mocked(productosApi.crear);
+const mockBuscar = vi.mocked(productosApi.buscar);
 const mockExtraer = vi.mocked(ingestaApi.extraer);
 const mockConfirmar = vi.mocked(ingestaApi.confirmar);
 const mockPresigned = vi.mocked(storageApi.solicitarPresignedUrl);
@@ -83,6 +84,8 @@ describe('ReceiptReviewPage (HU-37)', () => {
     mockPresigned.mockReset();
     mockSubir.mockReset();
     mockCrearProducto.mockReset();
+    mockBuscar.mockReset();
+    mockBuscar.mockResolvedValue({ items: [], total: 0 });
 
     mockPresigned.mockResolvedValue({ uploadUrl: 'https://s3/upload', key: 'recibos/e1/r.jpg', expiresInSeconds: 300 });
     mockSubir.mockResolvedValue(undefined);
@@ -175,9 +178,16 @@ describe('ReceiptReviewPage (HU-37)', () => {
     await waitFor(() => expect(screen.getByText(/agrégalo como nuevo/i)).toBeInTheDocument());
     expect(mockCrearProducto).not.toHaveBeenCalled();
 
+    // El alta se hace en un bottom sheet; el nombre y el precio llegan precargados desde la IA.
     fireEvent.click(screen.getByRole('button', { name: /agregarlo como producto nuevo/i }));
+    expect(screen.getByLabelText(/^nombre/i)).toHaveValue('cinta masking');
     fireEvent.change(screen.getByLabelText(/costo de compra/i), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText(/stock disponible/i), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: /guardar producto/i }));
+
+    // La tarjeta queda con el producto nuevo vinculado y nada se creó todavía.
+    await waitFor(() => expect(screen.queryByLabelText(/stock disponible/i)).not.toBeInTheDocument());
+    expect(mockCrearProducto).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /confirmar y guardar ingesta/i }));
 
     await waitFor(() =>
@@ -195,5 +205,47 @@ describe('ReceiptReviewPage (HU-37)', () => {
         items: [{ productoId: 'p-nuevo', cantidad: 2, precioVenta: 5 }],
       })
     );
+  });
+
+  it('muestra el total en vivo, la foto original y colapsa el ítem resuelto', async () => {
+    renderPage();
+    adjuntarRecibo();
+    await waitFor(() => expect(screen.getByText(/revisión de la extracción/i)).toBeInTheDocument(), { timeout: 3000 });
+
+    // 3 x 8 = 24 en la barra fija; el ítem coincidente llega colapsado (sin campos de edición).
+    expect(screen.getByText(/total del recibo/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/24/).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/cantidad/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /ver foto original/i })[0]!);
+    await waitFor(() => expect(screen.getByAltText(/foto original del recibo/i)).toBeInTheDocument());
+  });
+
+  it('sugiere productos parecidos y los asigna con un toque', async () => {
+    mockExtraer.mockResolvedValue({
+      ingestaId: 'ing-3',
+      estado: 'pendiente',
+      fechaSugerida: '2026-02-01',
+      items: [
+        { descripcion: 'Hilos de 600 yardas', cantidad: 1, precioUnitario: 4, productoId: null, nombreProducto: null, sku: null, similitud: null },
+      ],
+    });
+    mockBuscar.mockResolvedValue({
+      items: [
+        { id: 'p-hilo', sku: null, nombre: 'Hilo 500y', precioVenta: 4, costoUnitario: 2, stockActual: 9, unidadMedida: 'unidad', factorConversion: 1, unidadCompra: null },
+      ],
+      total: 1,
+    });
+
+    renderPage();
+    adjuntarRecibo();
+    await waitFor(() => expect(screen.getByText(/revisión de la extracción/i)).toBeInTheDocument(), { timeout: 3000 });
+
+    const sugerencia = await screen.findByRole('button', { name: 'Hilo 500y' }, { timeout: 3000 });
+    fireEvent.click(sugerencia);
+
+    // Al resolverse, la tarjeta se colapsa mostrando el producto vinculado.
+    await waitFor(() => expect(screen.queryByText(/la ia leyó/i)).not.toBeInTheDocument());
+    expect(screen.getByText('Hilo 500y')).toBeInTheDocument();
   });
 });
