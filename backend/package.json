@@ -1,0 +1,40 @@
+{
+  "name": "@libredss/backend",
+  "version": "0.1.0",
+  "description": "Backend API Serverless y Motor Algorítmico DSS",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1150.0",
+    "@aws-sdk/s3-request-presigner": "^3.1150.0",
+    "@google/genai": "^2.28.0",
+    "@libredss/shared": "*",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.33.0",
+    "jsonwebtoken": "^9.0.3",
+    "papaparse": "^5.7.0",
+    "pg": "^8.12.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.0.0",
+    "@types/papaparse": "^5.5.2",
+    "@types/pg": "^8.11.6",
+    "drizzle-kit": "^0.24.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

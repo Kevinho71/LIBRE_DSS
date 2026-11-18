@@ -1,0 +1,112 @@
+import { LambdaEvent, LambdaResponse, ok, parseBody } from '../../shared/types/lambda';
+import { extractTenantId } from '../../shared/middleware/requireAuth';
+import { retrospectivaSchema, explicarAlertaSchema, relojSimuladoSchema, configuracionDssSchema } from './dss.schema';
+import { dssService } from './dss.service';
+import { env } from '../../shared/utils/env';
+import { ForbiddenError } from '../../shared/errors/AppError';
+
+export async function recalcularAbcHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.recalcularAbc(empresaId);
+  return ok(result);
+}
+
+export async function obtenerResumenAbcHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.obtenerResumen(empresaId);
+  return ok(result);
+}
+
+export async function obtenerParetoHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.obtenerPareto(empresaId);
+  return ok(result);
+}
+
+export async function recalcularEoqRopHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.recalcularEoqRop(empresaId);
+  return ok(result);
+}
+
+export async function obtenerAlertasHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.obtenerAlertas(empresaId);
+  return ok(result);
+}
+
+export async function recalcularSistemasHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.recalcularSistemas(empresaId);
+  return ok(result);
+}
+
+export async function obtenerSistemasHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.obtenerSistemas(empresaId);
+  return ok(result);
+}
+
+export async function obtenerAlertasMinMaxHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.obtenerAlertasMinMax(empresaId);
+  return ok(result);
+}
+
+export async function retrospectivaHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const rawBody = parseBody(event.body, event.isBase64Encoded);
+  const dto = retrospectivaSchema.parse(rawBody);
+  const result = await dssService.simularRetrospectiva(empresaId, dto);
+  return ok(result);
+}
+
+export async function sugerenciasProveedorHandler(event: LambdaEvent, proveedorId: string): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.obtenerSugerenciasProveedor(empresaId, proveedorId);
+  return ok(result);
+}
+
+export async function explicarAlertaHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const rawBody = parseBody(event.body, event.isBase64Encoded);
+  const dto = explicarAlertaSchema.parse(rawBody);
+  const result = await dssService.explicarAlerta(empresaId, dto.productoId);
+  return ok(result);
+}
+
+/**
+ * Control del reloj inyectable (Plan de Simulación §4.1).
+ * Solo disponible cuando el entorno declara que se está simulando (`DSS_SIM_FECHA` o
+ * `DSS_HABILITAR_SIMULACION=true`), para no exponerlo en producción.
+ */
+export async function fijarRelojHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  extractTenantId(event); // requiere token válido
+
+  const simulacionHabilitada = env.DSS_HABILITAR_SIMULACION === 'true' || env.DSS_SIM_FECHA !== undefined;
+  if (!simulacionHabilitada) {
+    throw new ForbiddenError(
+      'SIMULACION_DESHABILITADA',
+      'El reloj de simulación solo está disponible si DSS_SIM_FECHA o DSS_HABILITAR_SIMULACION están configurados'
+    );
+  }
+
+  const rawBody = parseBody(event.body, event.isBase64Encoded);
+  const dto = relojSimuladoSchema.parse(rawBody);
+  const result = await dssService.fijarRelojSimulado(dto.fecha);
+  return ok(result);
+}
+
+export async function obtenerConfiguracionHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const result = await dssService.obtenerConfiguracion(empresaId);
+  return ok(result);
+}
+
+export async function actualizarConfiguracionHandler(event: LambdaEvent): Promise<LambdaResponse> {
+  const empresaId = extractTenantId(event);
+  const rawBody = parseBody(event.body, event.isBase64Encoded);
+  const dto = configuracionDssSchema.parse(rawBody);
+  const result = await dssService.actualizarConfiguracion(empresaId, dto);
+  return ok(result);
+}
